@@ -208,6 +208,160 @@
     /* ── Main Console ── */
     .main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 
+    /* ── Content area (console + screen viewer side by side) ── */
+    .content-area {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Console Panel ── */
+    .console-panel {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Screen Viewer Panel ── */
+    .screen-panel {
+      width: 420px;
+      min-width: 280px;
+      max-width: 700px;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.2s;
+      resize: horizontal;  /* drag to resize */
+    }
+    .screen-panel.hidden { width: 0; min-width: 0; border: none; overflow: hidden; }
+
+    .screen-panel-header {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      background: var(--bg3);
+    }
+
+    .screen-panel-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text2);
+      font-family: var(--mono);
+      flex: 1;
+    }
+
+    .screen-live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text4);
+      flex-shrink: 0;
+    }
+    .screen-live-dot.live {
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+      animation: blink-red 1s infinite;
+    }
+    @keyframes blink-red { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .screen-ctrl-btn {
+      font-size: 10px;
+      font-family: var(--mono);
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text3);
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .screen-ctrl-btn:hover { border-color: var(--border2); color: var(--text2); }
+    .screen-ctrl-btn.active { background: #450a0a; border-color: var(--red); color: #f87171; }
+
+    .screen-interval-select {
+      font-size: 10px;
+      font-family: var(--mono);
+      background: var(--bg4);
+      border: 1px solid var(--border);
+      color: var(--text3);
+      padding: 3px 6px;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .screen-viewer {
+      flex: 1;
+      overflow: auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 10px;
+      background: var(--bg);
+    }
+
+    .screen-viewer img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      display: block;
+    }
+
+    .screen-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--text4);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 20px;
+      text-align: center;
+    }
+    .screen-placeholder .ph-icon { font-size: 32px; opacity: 0.3; }
+
+    .screen-footer {
+      padding: 6px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text4);
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .screen-toggle-btn {
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--sans);
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text3);
+      padding: 4px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .screen-toggle-btn:hover { border-color: var(--purple); color: var(--purple-l); }
+    .screen-toggle-btn.active { background: #1e1b4b; border-color: var(--purple); color: var(--purple-l); }
+
     /* ── Top Bar ── */
     .top-bar {
       background: var(--bg2);
@@ -270,7 +424,7 @@
     .output-area {
       flex: 1;
       min-height: 0;
-      overflow-y: scroll;        /* scroll not auto — always shows scrollbar */
+      overflow-y: scroll;
       overflow-x: hidden;
       padding: 16px 20px;
       display: flex;
@@ -278,12 +432,23 @@
       gap: 12px;
     }
 
-    /* ── Command Blocks ── */
+    /* ── Command Blocks — collapsible ── */
     .cmd-block {
       border-radius: 8px;
       border: 1px solid var(--border);
       overflow: hidden;
       animation: slideIn 0.2s ease-out;
+      flex-shrink: 0;   /* never compress — ensures scrollbar appears */
+    }
+
+    .cmd-block.collapsed .cmd-body,
+    .cmd-block.collapsed .code-actions,
+    .cmd-block.collapsed .pending-block {
+      display: none;
+    }
+
+    .cmd-block.collapsed .cmd-header {
+      border-bottom: none;
     }
 
     @keyframes slideIn {
@@ -300,7 +465,20 @@
       gap: 10px;
       font-size: 11px;
       font-family: var(--mono);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
     }
+    .cmd-header:hover { background: var(--bg4); }
+
+    .cmd-chevron {
+      font-size: 10px;
+      color: var(--text4);
+      transition: transform 0.2s;
+      margin-left: 4px;
+      flex-shrink: 0;
+    }
+    .cmd-block.collapsed .cmd-chevron { transform: rotate(-90deg); }
 
     .cmd-tag {
       font-size: 9px;
@@ -518,6 +696,12 @@
     .welcome p  { font-size: 13px; color: var(--text4); max-width: 320px; line-height: 1.6; }
 
     /* ── Scrollbar ── */
+    /* Force visible scrollbar on output area specifically */
+    #outputArea::-webkit-scrollbar { width: 10px; }
+    #outputArea::-webkit-scrollbar-track { background: #0f0f1a; border-radius: 5px; }
+    #outputArea::-webkit-scrollbar-thumb { background: #3730a3; border-radius: 5px; border: 2px solid #0f0f1a; }
+    #outputArea::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg3); border-radius: 4px; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; border: 2px solid var(--bg3); }
@@ -581,7 +765,7 @@
     <!-- Relay URL Config -->
     <div class="relay-config">
       <div class="panel-label" style="margin-bottom:6px">Relay Server URL</div>
-      <input class="relay-input" id="relayUrl" value="" placeholder="wss://remote-ai-onrender.com">
+      <input class="relay-input" id="relayUrl" value="" placeholder="wss://your-name.onrender.com">
       <div style="display:flex;gap:6px;margin-top:6px">
         <button onclick="testRelay()" style="flex:1;font-family:var(--mono);font-size:10px;background:var(--bg4);border:1px solid var(--border);color:var(--text3);padding:5px 8px;border-radius:4px;cursor:pointer">🔍 Test URL</button>
         <button onclick="saveRelayUrl()" style="flex:1;font-family:var(--mono);font-size:10px;background:#312e81;border:none;color:#c7d2fe;padding:5px 8px;border-radius:4px;cursor:pointer">💾 Save</button>
@@ -603,11 +787,18 @@
         <option value="gemma">💎 Gemma 2 9B (OpenRouter)</option>
         <option value="pollinations">🌸 Pollinations (no key)</option>
       </select>
+      <button class="screen-toggle-btn" id="screenToggleBtn" onclick="toggleScreenPanel()">📺 Screen View</button>
       <div class="mode-tabs">
         <button class="mode-tab active" data-mode="prompt" onclick="setMode('prompt')">AI Prompt</button>
         <button class="mode-tab" data-mode="code" onclick="setMode('code')">Direct Code</button>
       </div>
     </div>
+
+    <!-- Content Area: Console + Screen Viewer -->
+    <div class="content-area">
+
+      <!-- Console Panel -->
+      <div class="console-panel">
 
     <!-- Output -->
     <div class="output-area" id="outputArea">
@@ -652,6 +843,41 @@
         </div>
       </div>
     </div>
+
+      </div><!-- /console-panel -->
+
+      <!-- Screen Viewer Panel -->
+      <div class="screen-panel hidden" id="screenPanel">
+        <div class="screen-panel-header">
+          <div class="screen-live-dot" id="screenLiveDot"></div>
+          <div class="screen-panel-title">Live Screen</div>
+          <select class="screen-interval-select" id="screenInterval" onchange="updateScreenInterval()">
+            <option value="2000">2s</option>
+            <option value="5000" selected>5s</option>
+            <option value="10000">10s</option>
+            <option value="30000">30s</option>
+          </select>
+          <button class="screen-ctrl-btn" id="screenStartBtn" onclick="startScreenCapture()">▶ Start</button>
+          <button class="screen-ctrl-btn active" id="screenStopBtn" onclick="stopScreenCapture()" style="display:none">■ Stop</button>
+          <button class="screen-ctrl-btn" onclick="captureOnce()" title="Single capture">⟳</button>
+        </div>
+
+        <div class="screen-viewer" id="screenViewer">
+          <div class="screen-placeholder" id="screenPlaceholder">
+            <div class="ph-icon">📺</div>
+            <div>Press ▶ Start to begin<br>live screen capture</div>
+            <div style="color:var(--text4);font-size:9px;margin-top:4px">Updates every 5 seconds<br>Uses html2canvas in user's browser</div>
+          </div>
+          <img id="screenImg" style="display:none" alt="Remote screen">
+        </div>
+
+        <div class="screen-footer">
+          <span id="screenStatus">Not capturing</span>
+          <span id="screenTimestamp"></span>
+        </div>
+      </div><!-- /screen-panel -->
+
+    </div><!-- /content-area -->
   </div>
 </div>
 
@@ -873,15 +1099,28 @@ function scrollToBottom() {
   area.scrollTop = area.scrollHeight;
 }
 
+function toggleBlock(el) {
+  el.classList.toggle('collapsed');
+}
+
+function collapseAllExcept(exceptId) {
+  document.querySelectorAll('.cmd-block').forEach(b => {
+    if (b.id !== exceptId) b.classList.add('collapsed');
+  });
+}
+
 function appendPromptBlock(prompt, commandId) {
+  collapseAllExcept(commandId);
   const el = document.createElement('div');
   el.className = 'cmd-block';
   el.id = commandId;
   el.innerHTML = `
-    <div class="cmd-header">
+    <div class="cmd-header" onclick="toggleBlock(this.closest('.cmd-block'))">
       <span class="cmd-tag prompt">PROMPT</span>
       <span class="cmd-session">${currentSession}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3);font-size:10px;margin-left:4px">${escHtml(prompt.slice(0,60))}</span>
       <span class="cmd-time">${timeNow()}</span>
+      <span class="cmd-chevron">▼</span>
     </div>
     <div class="cmd-body">
       <div class="cmd-prompt">${escHtml(prompt)}</div>
@@ -896,14 +1135,17 @@ function appendPromptBlock(prompt, commandId) {
 }
 
 function appendCodeBlock(code, commandId) {
+  collapseAllExcept(commandId);
   const el = document.createElement('div');
   el.className = 'cmd-block';
   el.id = commandId;
   el.innerHTML = `
-    <div class="cmd-header">
+    <div class="cmd-header" onclick="toggleBlock(this.closest('.cmd-block'))">
       <span class="cmd-tag code">CODE</span>
       <span class="cmd-session">${currentSession}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3);font-size:10px;margin-left:4px">${escHtml(code.slice(0,60).replace(/\n/g,' '))}</span>
       <span class="cmd-time">${timeNow()}</span>
+      <span class="cmd-chevron">▼</span>
     </div>
     <div class="cmd-body">
       <div class="cmd-code">${escHtml(code)}</div>
@@ -1079,6 +1321,174 @@ function escHtml(str) {
 
 function timeNow() {
   return new Date().toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+// ─── Screen Capture ───────────────────────────────────────────────────────────
+let screenPanelVisible = false;
+let screenCaptureTimer = null;
+let screenCapturing = false;
+let screenInterval = 5000;
+
+function toggleScreenPanel() {
+  screenPanelVisible = !screenPanelVisible;
+  const panel = document.getElementById('screenPanel');
+  const btn = document.getElementById('screenToggleBtn');
+  panel.classList.toggle('hidden', !screenPanelVisible);
+  btn.classList.toggle('active', screenPanelVisible);
+  btn.textContent = screenPanelVisible ? '📺 Hide Screen' : '📺 Screen View';
+  if (!screenPanelVisible) stopScreenCapture();
+}
+
+function updateScreenInterval() {
+  screenInterval = parseInt(document.getElementById('screenInterval').value);
+  if (screenCapturing) {
+    stopScreenCapture();
+    startScreenCapture();
+  }
+}
+
+function startScreenCapture() {
+  if (!currentSession) { alert('Connect to a session first.'); return; }
+  if (screenCapturing) return;
+  screenCapturing = true;
+
+  document.getElementById('screenStartBtn').style.display = 'none';
+  document.getElementById('screenStopBtn').style.display = '';
+  document.getElementById('screenLiveDot').classList.add('live');
+  document.getElementById('screenStatus').textContent = 'Capturing…';
+
+  captureOnce();
+  screenCaptureTimer = setInterval(captureOnce, screenInterval);
+}
+
+function stopScreenCapture() {
+  screenCapturing = false;
+  clearInterval(screenCaptureTimer);
+  screenCaptureTimer = null;
+
+  document.getElementById('screenStartBtn').style.display = '';
+  document.getElementById('screenStopBtn').style.display = 'none';
+  document.getElementById('screenLiveDot').classList.remove('live');
+  document.getElementById('screenStatus').textContent = 'Stopped';
+}
+
+// The JS code injected into the user's browser to capture a screenshot
+// Returns the dataUrl directly as the function's return value (not via console.log)
+// This avoids the async timing issue with the console interceptor
+const CAPTURE_CODE = `
+return (async () => {
+  try {
+    if (!window.html2canvas) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load html2canvas'));
+        document.head.appendChild(s);
+      });
+      await new Promise(r => setTimeout(r, 800));
+    }
+    await new Promise(r => setTimeout(r, 200));
+    const canvas = await window.html2canvas(document.documentElement, {
+      useCORS: true,
+      allowTaint: true,
+      scale: 0.45,
+      x: 0,
+      y: window.scrollY,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      scrollX: 0,
+      scrollY: window.scrollY,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      logging: false,
+      imageTimeout: 10000,
+      removeContainer: true,
+      backgroundColor: '#ffffff'
+    });
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+    if (!dataUrl || dataUrl === 'data:,') return '__SCREEN_ERR__:Canvas empty — page may block capture';
+    return '__SCREEN__:' + dataUrl;
+  } catch(e) {
+    return '__SCREEN_ERR__:' + e.message;
+  }
+})();
+`;
+
+async function captureOnce() {
+  if (!currentSession || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+  const commandId = `screen-${Date.now()}`;
+
+  // Send a direct code command (no AI needed)
+  ws.send(JSON.stringify({
+    type: 'command',
+    commandId,
+    code: CAPTURE_CODE,
+    sessionId: currentSession,
+    isScreenCapture: true
+  }));
+
+  // Track this as a screen command so result handler knows to show it in the panel
+  pendingScreenCaptures.add(commandId);
+  document.getElementById('screenStatus').textContent = 'Waiting for capture…';
+}
+
+const pendingScreenCaptures = new Set();
+
+// Hook into the existing handleRelayMessage to intercept screen results
+const _origHandleRelayMsg = handleRelayMessage;
+window.handleRelayMessage = function(msg) {
+  if (msg.type === 'result' && pendingScreenCaptures.has(msg.commandId)) {
+    pendingScreenCaptures.delete(msg.commandId);
+    handleScreenResult(msg.result);
+    return; // don't show in console
+  }
+  _origHandleRelayMsg(msg);
+};
+
+function handleScreenResult(result) {
+  if (!result) return;
+
+  // Image is in returnValue (a resolved Promise string) — not console logs
+  // The async func returns '__SCREEN__:data:image/jpeg...' or '__SCREEN_ERR__:message'
+  const raw = result.returnValue || '';
+
+  if (raw.startsWith('__SCREEN__:')) {
+    const dataUrl = raw.replace('__SCREEN__:', '');
+    showScreenFrame(dataUrl, result.title, result.url);
+  } else if (raw.startsWith('__SCREEN_ERR__:')) {
+    const errMsg = raw.replace('__SCREEN_ERR__:', '');
+    document.getElementById('screenStatus').textContent = '✗ Capture error: ' + errMsg;
+    document.getElementById('screenStatus').style.color = 'var(--red)';
+  } else if (result.error) {
+    document.getElementById('screenStatus').textContent = '✗ ' + result.error;
+    document.getElementById('screenStatus').style.color = 'var(--red)';
+  } else {
+    // Fallback: try console logs for older format
+    const screenLog = result.logs?.find(l => l.msg?.startsWith('__SCREEN__:'));
+    if (screenLog) {
+      showScreenFrame(screenLog.msg.replace('__SCREEN__:', ''), result.title, result.url);
+    } else {
+      document.getElementById('screenStatus').textContent = '✗ No image data received';
+      document.getElementById('screenStatus').style.color = 'var(--amber)';
+    }
+  }
+}
+
+function showScreenFrame(dataUrl, title, url) {
+  const img = document.getElementById('screenImg');
+  const placeholder = document.getElementById('screenPlaceholder');
+  const ts = document.getElementById('screenTimestamp');
+  const status = document.getElementById('screenStatus');
+
+  img.src = dataUrl;
+  img.style.display = 'block';
+  placeholder.style.display = 'none';
+
+  ts.textContent = timeNow();
+  status.textContent = `● Live — ${title ? title.slice(0, 30) : url?.slice(0, 30) || 'Unknown page'}`;
+  status.style.color = 'var(--green)';
 }
 </script>
 </body>
