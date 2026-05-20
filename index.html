@@ -729,6 +729,148 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
+    /* ── Agent Mode ── */
+    .agent-status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0 8px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--text3);
+    }
+    .agent-status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text4);
+      flex-shrink: 0;
+    }
+    .agent-status-dot.running {
+      background: #7c3aed;
+      box-shadow: 0 0 8px #7c3aed;
+      animation: blink-purple 0.8s infinite;
+    }
+    .agent-status-dot.done { background: var(--green); }
+    .agent-status-dot.error { background: var(--red); }
+    @keyframes blink-purple { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .agent-stop-btn {
+      margin-left: auto;
+      font-size: 10px;
+      font-family: var(--mono);
+      background: #450a0a;
+      border: 1px solid var(--red);
+      color: #f87171;
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* ── Agent blocks in output ── */
+    .agent-block {
+      border-radius: 8px;
+      border: 1px solid #3730a3;
+      background: #0a0a18;
+      overflow: hidden;
+      animation: slideIn 0.2s ease-out;
+      flex-shrink: 0;
+    }
+    .agent-block-header {
+      background: #1e1b4b;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-family: var(--mono);
+      cursor: pointer;
+      user-select: none;
+    }
+    .agent-block-header:hover { background: #312e81; }
+    .agent-goal {
+      font-size: 13px;
+      font-weight: 600;
+      color: #c7d2fe;
+      padding: 10px 14px 6px;
+    }
+    .agent-step {
+      padding: 6px 14px;
+      border-top: 1px solid #1e1e3a;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+    .agent-step-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #312e81;
+      color: #a5b4fc;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .agent-step-num.done { background: #14532d; color: #4ade80; }
+    .agent-step-num.error { background: #450a0a; color: #f87171; }
+    .agent-step-num.running { background: #312e81; animation: blink-purple 0.8s infinite; }
+    .agent-step-content { flex: 1; }
+    .agent-step-action { color: var(--text2); line-height: 1.4; }
+    .agent-step-result { color: var(--text3); margin-top: 3px; font-size: 10px; white-space: pre-wrap; word-break: break-all; }
+    .agent-conclusion {
+      margin: 8px 14px 10px;
+      padding: 8px 12px;
+      background: #0c2a1f;
+      border: 1px solid #166534;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #4ade80;
+      font-family: var(--mono);
+    }
+    .agent-conclusion.error { background: #2d0a0a; border-color: #450a0a; color: #f87171; }
+
+    /* ── Chat Mode ── */
+    .chat-block {
+      border-radius: 10px;
+      padding: 10px 14px;
+      max-width: 85%;
+      font-size: 13px;
+      line-height: 1.6;
+      flex-shrink: 0;
+      animation: slideIn 0.2s ease-out;
+      white-space: pre-wrap;
+    }
+    .chat-block.user {
+      background: #1e1b4b;
+      color: #c7d2fe;
+      align-self: flex-end;
+      border-bottom-right-radius: 3px;
+    }
+    .chat-block.ai {
+      background: var(--bg3);
+      color: var(--text);
+      align-self: flex-start;
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 3px;
+    }
+    .chat-block.ai.thinking {
+      color: var(--text4);
+      font-style: italic;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-time {
+      font-size: 9px;
+      color: var(--text4);
+      font-family: var(--mono);
+      margin-top: 3px;
+      text-align: right;
+    }
+    .chat-wrap { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+    .voice-btn-active { background: #450a0a !important; border: 1px solid var(--red) !important; animation: blink-purple 0.8s infinite; }
+
     /* ── Login Screen ── */
     .login-overlay {
       position: fixed;
@@ -899,7 +1041,7 @@
     <button class="login-btn" onclick="attemptLogin()">Sign In →</button>
     <div class="login-error" id="loginError">Incorrect username or password</div>
 
-    <div class="login-footer">Manigandan Parthasarathi.</div>
+    <div class="login-footer">HydraSpecma India Pvt. Ltd.</div>
   </div>
 </div>
 
@@ -938,12 +1080,20 @@
     <!-- Relay URL Config -->
     <div class="relay-config">
       <div class="panel-label" style="margin-bottom:6px">Relay Server URL</div>
-      <input class="relay-input" id="relayUrl" value="" placeholder="wss://remote-ai-relay.onrender.com">
+      <input class="relay-input" id="relayUrl" value="" placeholder="wss://your-name.onrender.com">
       <div style="display:flex;gap:6px;margin-top:6px">
         <button onclick="testRelay()" style="flex:1;font-family:var(--mono);font-size:10px;background:var(--bg4);border:1px solid var(--border);color:var(--text3);padding:5px 8px;border-radius:4px;cursor:pointer">🔍 Test URL</button>
         <button onclick="saveRelayUrl()" style="flex:1;font-family:var(--mono);font-size:10px;background:#312e81;border:none;color:#c7d2fe;padding:5px 8px;border-radius:4px;cursor:pointer">💾 Save</button>
       </div>
       <div id="relayTestResult" style="font-size:10px;font-family:var(--mono);color:var(--text4);margin-top:5px;line-height:1.4"></div>
+
+      <div class="panel-label" style="margin-top:12px;margin-bottom:6px">Agent / Chat API Key (Groq)</div>
+      <div style="display:flex;gap:6px">
+        <input class="relay-input" id="agentKeyInput" type="password" placeholder="Groq key for Agent + Chat modes" style="flex:1"
+          value="">
+        <button onclick="saveAgentKey()" style="font-family:var(--mono);font-size:10px;background:#312e81;border:none;color:#c7d2fe;padding:5px 10px;border-radius:4px;cursor:pointer;white-space:nowrap">Save</button>
+      </div>
+      <div style="font-size:9px;color:var(--text4);font-family:var(--mono);margin-top:4px">Free key: console.groq.com</div>
     </div>
   </div>
 
@@ -962,8 +1112,10 @@
       </select>
       <button class="screen-toggle-btn" id="screenToggleBtn" onclick="toggleScreenPanel()">📺 Screen View</button>
       <div class="mode-tabs">
-        <button class="mode-tab active" data-mode="prompt" onclick="setMode('prompt')">AI Prompt</button>
-        <button class="mode-tab" data-mode="code" onclick="setMode('code')">Direct Code</button>
+        <button class="mode-tab active" data-mode="prompt" onclick="setMode('prompt')">⚡ AI Prompt</button>
+        <button class="mode-tab" data-mode="agent" onclick="setMode('agent')">🤖 Agent</button>
+        <button class="mode-tab" data-mode="chat" onclick="setMode('chat')">💬 Chat</button>
+        <button class="mode-tab" data-mode="code" onclick="setMode('code')">{ } Code</button>
       </div>
     </div>
 
@@ -1013,6 +1165,48 @@
             placeholder="// Paste JavaScript here — executes directly in the browser console&#10;console.log('Hello from admin!');"
             onkeydown="handleCodeKey(event)"></textarea>
           <button class="send-btn" style="margin-top:0" onclick="sendCodeCommand()" title="Execute (Ctrl+Enter)">▶</button>
+        </div>
+      </div>
+
+      <!-- Agent Mode -->
+      <div class="tab-content" id="tab-agent">
+        <div class="agent-status-bar" id="agentStatusBar">
+          <div class="agent-status-dot" id="agentDot"></div>
+          <span id="agentStatusText">Agent idle — give a goal to begin</span>
+          <button class="agent-stop-btn" id="agentStopBtn" onclick="stopAgent()" style="display:none">⏹ Stop Agent</button>
+        </div>
+        <div class="prompt-row">
+          <div class="prompt-wrapper">
+            <div class="prompt-mode-label">🤖 Agent Goal — AI will plan, execute steps, and iterate until done</div>
+            <textarea class="prompt-input" id="agentInput"
+              placeholder="e.g. Go to D365 F&O, navigate to Vendors list, filter by active status, and return the count"
+              rows="2"
+              onkeydown="handleAgentKey(event)"
+              oninput="autoResize(this)"></textarea>
+          </div>
+          <button class="send-btn" id="agentSendBtn" onclick="startAgent()" title="Start Agent (Ctrl+Enter)" style="background:#7c3aed">▶</button>
+        </div>
+        <div class="input-hints">
+          <span class="hint-chip" onclick="fillAgent('Navigate to the page and get all table data as JSON')">get table data</span>
+          <span class="hint-chip" onclick="fillAgent('Fill out the search form and click search button')">fill & search</span>
+          <span class="hint-chip" onclick="fillAgent('Click the export button and wait for download to start')">export data</span>
+          <span class="hint-chip" onclick="fillAgent('Scroll through the page and collect all visible text content')">collect content</span>
+        </div>
+      </div>
+
+      <!-- Chat / Conversation Mode -->
+      <div class="tab-content" id="tab-chat">
+        <div class="prompt-row">
+          <div class="prompt-wrapper">
+            <div class="prompt-mode-label">💬 Conversation — Chat with AI about what's on the user's screen</div>
+            <textarea class="prompt-input" id="chatInput"
+              placeholder="e.g. What page is the user on? What should they do next?"
+              rows="1"
+              onkeydown="handleChatKey(event)"
+              oninput="autoResize(this)"></textarea>
+          </div>
+          <button class="send-btn" id="chatSendBtn" onclick="sendChat()" title="Send (Ctrl+Enter)" style="background:#0369a1">💬</button>
+          <button class="send-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input" style="background:#1e293b;font-size:16px">🎤</button>
         </div>
       </div>
     </div>
@@ -1178,6 +1372,12 @@ renderRecentSessions();
 // Load saved relay URL into input
 if (relayBase) {
   document.getElementById('relayUrl').value = relayBase;
+}
+
+// Load saved agent key
+const savedAgentKey = localStorage.getItem('agentGroqKey') || '';
+if (savedAgentKey && document.getElementById('agentKeyInput')) {
+  document.getElementById('agentKeyInput').value = '••••••••••••';
 }
 
 document.getElementById('sessionInput').addEventListener('input', e => {
@@ -1524,6 +1724,9 @@ function setMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === `tab-${mode}`));
+  // Focus appropriate input
+  const inputs = { prompt: 'promptInput', agent: 'agentInput', chat: 'chatInput', code: 'codeInput' };
+  setTimeout(() => document.getElementById(inputs[mode])?.focus(), 50);
 }
 
 function setStatus(state, msg) {
@@ -1761,14 +1964,427 @@ function showScreenFrame(dataUrl, title, url) {
   const placeholder = document.getElementById('screenPlaceholder');
   const ts = document.getElementById('screenTimestamp');
   const status = document.getElementById('screenStatus');
-
   img.src = dataUrl;
   img.style.display = 'block';
   placeholder.style.display = 'none';
-
   ts.textContent = timeNow();
   status.textContent = `● Live — ${title ? title.slice(0, 30) : url?.slice(0, 30) || 'Unknown page'}`;
   status.style.color = 'var(--green)';
+}
+
+// ─── Mode: Agent ──────────────────────────────────────────────────────────────
+let agentRunning = false;
+let agentAbort = false;
+let agentStepCount = 0;
+const AGENT_MAX_STEPS = 10;
+const GROQ_KEY_STORE = 'groqApiKey'; // reuse extension key storage concept
+
+function fillAgent(text) { document.getElementById('agentInput').value = text; autoResize(document.getElementById('agentInput')); }
+function handleAgentKey(e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); startAgent(); } }
+
+function setAgentStatus(state, text) {
+  const dot = document.getElementById('agentDot');
+  const txt = document.getElementById('agentStatusText');
+  const stopBtn = document.getElementById('agentStopBtn');
+  dot.className = 'agent-status-dot ' + state;
+  txt.textContent = text;
+  stopBtn.style.display = state === 'running' ? '' : 'none';
+}
+
+function stopAgent() {
+  agentAbort = true;
+  agentRunning = false;
+  setAgentStatus('error', 'Agent stopped by user');
+  document.getElementById('agentSendBtn').disabled = false;
+}
+
+async function startAgent() {
+  const goal = document.getElementById('agentInput').value.trim();
+  if (!goal) return;
+  if (!currentSession) { alert('Connect to a browser session first.'); return; }
+  if (agentRunning) return;
+
+  agentRunning = true;
+  agentAbort = false;
+  agentStepCount = 0;
+  clearWelcome();
+
+  document.getElementById('agentSendBtn').disabled = true;
+  setAgentStatus('running', 'Agent starting…');
+  collapseAllExcept('agent-current');
+
+  // Create agent block in output
+  const blockId = `agent-${Date.now()}`;
+  const block = document.createElement('div');
+  block.className = 'agent-block';
+  block.id = blockId;
+  block.innerHTML = `
+    <div class="agent-block-header" onclick="this.closest('.agent-block').classList.toggle('collapsed')">
+      <span style="font-size:9px;padding:2px 7px;background:#312e81;color:#a5b4fc;border-radius:3px;font-weight:700;letter-spacing:.08em">AGENT</span>
+      <span style="color:#c7d2fe;flex:1">${escHtml(goal.slice(0,80))}</span>
+      <span style="color:var(--text4)">${timeNow()}</span>
+      <span class="cmd-chevron">▼</span>
+    </div>
+    <div class="agent-goal">${escHtml(goal)}</div>
+    <div id="${blockId}-steps"></div>`;
+  document.getElementById('outputArea').appendChild(block);
+  setTimeout(scrollToBottom, 50);
+
+  // Get current page context first
+  const pageCtx = await getPageContext();
+
+  // Run the agentic loop
+  let conversationHistory = [];
+  let lastResult = null;
+  let achieved = false;
+
+  const systemPrompt = `You are an autonomous browser automation agent. The user gives you a goal and you accomplish it by running JavaScript in their browser step by step.
+
+Rules:
+- Each response must be valid JSON: {"thought":"...", "action":"js_code_here", "done":false, "conclusion":""}
+- "thought": explain what you're doing and why (max 1 sentence)
+- "action": JavaScript code to run in the browser (use console.log for outputs, return values for data)
+- "done": true ONLY when goal is fully achieved
+- "conclusion": summary of what was achieved (only when done:true)
+- Keep actions focused and safe — no destructive operations
+- After each result, adapt your next action based on what you see
+- Max ${AGENT_MAX_STEPS} steps then summarize what was found`;
+
+  while (!agentAbort && agentStepCount < AGENT_MAX_STEPS) {
+    agentStepCount++;
+
+    const userMsg = agentStepCount === 1
+      ? `Goal: ${goal}\n\nCurrent page context:\nURL: ${pageCtx.url}\nTitle: ${pageCtx.title}\nPage text preview: ${pageCtx.text?.slice(0, 800) || 'N/A'}`
+      : `Step ${agentStepCount-1} result:\n${JSON.stringify(lastResult, null, 2)}\n\nContinue working towards the goal. Are we done?`;
+
+    conversationHistory.push({ role: 'user', content: userMsg });
+
+    // Add step UI
+    const stepEl = addAgentStep(blockId, agentStepCount, 'running', 'Thinking…', '');
+
+    setAgentStatus('running', `Step ${agentStepCount}/${AGENT_MAX_STEPS} — AI planning…`);
+
+    // Call Groq AI for next action
+    let plan;
+    try {
+      const aiResponse = await callAgentAI(systemPrompt, conversationHistory);
+      plan = parseAgentResponse(aiResponse);
+      conversationHistory.push({ role: 'assistant', content: aiResponse });
+    } catch(e) {
+      updateAgentStep(stepEl, 'error', `AI error: ${e.message}`, '');
+      break;
+    }
+
+    // Update step with action
+    updateAgentStep(stepEl, 'running', plan.thought, '');
+    setAgentStatus('running', `Step ${agentStepCount} — Executing in browser…`);
+
+    // Execute the action in browser
+    let result;
+    try {
+      result = await executeAgentCode(plan.action);
+      lastResult = {
+        logs: result.logs?.map(l => l.msg).join('\n') || '',
+        returnValue: result.returnValue || '',
+        error: result.error || null,
+        url: result.url,
+        title: result.title
+      };
+      const resultText = result.error
+        ? `ERROR: ${result.error}`
+        : (result.returnValue || result.logs?.map(l=>l.msg).join('\n') || 'Done (no output)');
+      updateAgentStep(stepEl, result.error ? 'error' : 'done', plan.thought, resultText.slice(0, 300));
+    } catch(e) {
+      lastResult = { error: e.message };
+      updateAgentStep(stepEl, 'error', plan.thought, `Execution error: ${e.message}`);
+    }
+
+    // Check if goal achieved
+    if (plan.done) {
+      achieved = true;
+      const conclusion = document.createElement('div');
+      conclusion.className = 'agent-conclusion';
+      conclusion.textContent = '✓ ' + (plan.conclusion || 'Goal achieved successfully.');
+      block.appendChild(conclusion);
+      setAgentStatus('done', '✓ Goal achieved!');
+      break;
+    }
+
+    await new Promise(r => setTimeout(r, 500)); // small pause between steps
+  }
+
+  if (!achieved && !agentAbort) {
+    const conclusion = document.createElement('div');
+    conclusion.className = 'agent-conclusion error';
+    conclusion.textContent = `⚠ Reached max steps (${AGENT_MAX_STEPS}). Last result: ${JSON.stringify(lastResult?.returnValue || lastResult?.logs || lastResult?.error || 'No output').slice(0,200)}`;
+    block.appendChild(conclusion);
+    setAgentStatus('error', `Stopped after ${AGENT_MAX_STEPS} steps`);
+  }
+
+  agentRunning = false;
+  document.getElementById('agentSendBtn').disabled = false;
+  setTimeout(scrollToBottom, 100);
+}
+
+function addAgentStep(blockId, num, state, action, result) {
+  const steps = document.getElementById(`${blockId}-steps`);
+  const el = document.createElement('div');
+  el.className = 'agent-step';
+  el.id = `${blockId}-step-${num}`;
+  el.innerHTML = `
+    <div class="agent-step-num ${state}" id="${blockId}-step-${num}-num">${state === 'running' ? '…' : num}</div>
+    <div class="agent-step-content">
+      <div class="agent-step-action" id="${blockId}-step-${num}-action">${escHtml(action)}</div>
+      <div class="agent-step-result" id="${blockId}-step-${num}-result">${escHtml(result)}</div>
+    </div>`;
+  steps.appendChild(el);
+  setTimeout(scrollToBottom, 50);
+  return el;
+}
+
+function updateAgentStep(el, state, action, result) {
+  const num = el.querySelector('[class^="agent-step-num"]') || el.querySelector('.agent-step-num');
+  if (num) { num.className = `agent-step-num ${state}`; num.textContent = state === 'running' ? '…' : (state === 'done' ? '✓' : '✗'); }
+  const actionEl = el.querySelector('.agent-step-action');
+  const resultEl = el.querySelector('.agent-step-result');
+  if (actionEl) actionEl.textContent = action;
+  if (resultEl) resultEl.textContent = result;
+  setTimeout(scrollToBottom, 50);
+}
+
+async function getPageContext() {
+  try {
+    const result = await executeAgentCode(`
+      return JSON.stringify({
+        url: location.href,
+        title: document.title,
+        text: document.body?.innerText?.slice(0, 1200) || ''
+      });
+    `);
+    return JSON.parse(result.returnValue || '{}');
+  } catch { return { url: 'unknown', title: 'unknown', text: '' }; }
+}
+
+async function callAgentAI(system, history) {
+  // Try Groq first (fastest for agentic loops)
+  const groqKey = localStorage.getItem('agentGroqKey') || '';
+  if (groqKey) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'system', content: system }, ...history],
+        temperature: 0.1,
+        max_tokens: 1024,
+        response_format: { type: 'json_object' }
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.choices?.[0]?.message?.content || '{}';
+  }
+
+  // Fallback: Pollinations (no key needed)
+  const lastMsg = history[history.length-1]?.content || '';
+  const prompt = encodeURIComponent(`${system}\n\nRespond ONLY with JSON.\n\n${lastMsg}`);
+  const res = await fetch(`https://text.pollinations.ai/${prompt}`);
+  return await res.text();
+}
+
+function parseAgentResponse(raw) {
+  try {
+    const clean = raw.replace(/^```(?:json)?\n?/m,'').replace(/\n?```$/m,'').trim();
+    return JSON.parse(clean);
+  } catch {
+    // Try to extract JSON from response
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) { try { return JSON.parse(match[0]); } catch {} }
+    return { thought: 'Planning next step', action: 'console.log("Analyzing page...")', done: false };
+  }
+}
+
+async function executeAgentCode(code) {
+  return new Promise((resolve, reject) => {
+    if (!currentSession || !ws || ws.readyState !== WebSocket.OPEN) {
+      reject(new Error('Not connected to browser'));
+      return;
+    }
+    const commandId = `agent-${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+    const timeout = setTimeout(() => {
+      pendingAgentCommands.delete(commandId);
+      reject(new Error('Browser execution timeout (15s)'));
+    }, 15000);
+
+    pendingAgentCommands.set(commandId, { resolve, reject, timeout });
+    ws.send(JSON.stringify({ type: 'command', commandId, code, sessionId: currentSession }));
+  });
+}
+
+const pendingAgentCommands = new Map();
+
+// ─── Mode: Chat / Conversation ────────────────────────────────────────────────
+let chatHistory = [];
+let voiceRecognition = null;
+let voiceActive = false;
+
+function handleChatKey(e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendChat(); } }
+
+async function sendChat() {
+  const input = document.getElementById('chatInput').value.trim();
+  if (!input) return;
+  document.getElementById('chatInput').value = '';
+  autoResize(document.getElementById('chatInput'));
+  clearWelcome();
+
+  // User bubble
+  appendChatBubble('user', input);
+
+  // Thinking bubble
+  const thinkingId = `thinking-${Date.now()}`;
+  appendChatBubble('ai thinking', '⟳ Thinking…', thinkingId);
+
+  // Get page context if connected
+  let pageCtx = '';
+  if (currentSession && ws?.readyState === WebSocket.OPEN) {
+    try {
+      const ctx = await getPageContext();
+      pageCtx = `\n\nCurrent browser context:\nURL: ${ctx.url}\nTitle: ${ctx.title}\nPage text: ${ctx.text?.slice(0,600)}`;
+    } catch {}
+  }
+
+  chatHistory.push({ role: 'user', content: input + pageCtx });
+
+  const systemPrompt = `You are Mani's AI assistant helping with browser automation and D365 F&O tasks at HydraSpecma India. You have access to the user's current browser context when connected. Be helpful, concise, and practical. If asked to do something in the browser, explain what code would be needed or ask admin to switch to Agent mode.`;
+
+  try {
+    const groqKey = localStorage.getItem('agentGroqKey') || '';
+    let reply;
+
+    if (groqKey) {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'system', content: systemPrompt }, ...chatHistory],
+          temperature: 0.7, max_tokens: 1024
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      reply = data.choices?.[0]?.message?.content || 'No response';
+    } else {
+      const prompt = encodeURIComponent(`${systemPrompt}\n\nUser: ${input}${pageCtx}\n\nAssistant:`);
+      const res = await fetch(`https://text.pollinations.ai/${prompt}`);
+      reply = await res.text();
+    }
+
+    chatHistory.push({ role: 'assistant', content: reply });
+
+    // Remove thinking, add reply
+    document.getElementById(thinkingId)?.remove();
+    appendChatBubble('ai', reply);
+
+    // Speak reply if voice is active
+    if (voiceActive && window.speechSynthesis) {
+      const utter = new SpeechSynthesisUtterance(reply.slice(0, 400));
+      utter.rate = 1.1;
+      speechSynthesis.speak(utter);
+    }
+  } catch(e) {
+    document.getElementById(thinkingId)?.remove();
+    appendChatBubble('ai', `Error: ${e.message}`);
+  }
+
+  setTimeout(scrollToBottom, 100);
+}
+
+function appendChatBubble(type, text, id) {
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-wrap';
+  if (id) wrap.id = id;
+  const bubble = document.createElement('div');
+  bubble.className = `chat-block ${type}`;
+  bubble.textContent = text;
+  const time = document.createElement('div');
+  time.className = 'chat-time';
+  time.textContent = timeNow();
+  wrap.appendChild(bubble);
+  wrap.appendChild(time);
+  document.getElementById('outputArea').appendChild(wrap);
+  setTimeout(scrollToBottom, 50);
+  return wrap;
+}
+
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    alert('Voice input not supported in this browser. Use Chrome.');
+    return;
+  }
+  const btn = document.getElementById('voiceBtn');
+  if (voiceActive) {
+    voiceRecognition?.stop();
+    voiceActive = false;
+    btn.textContent = '🎤';
+    btn.classList.remove('voice-btn-active');
+    return;
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  voiceRecognition = new SR();
+  voiceRecognition.continuous = false;
+  voiceRecognition.interimResults = false;
+  voiceRecognition.lang = 'en-IN';
+
+  voiceRecognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('chatInput').value = transcript;
+    voiceActive = false;
+    btn.textContent = '🎤';
+    btn.classList.remove('voice-btn-active');
+    sendChat();
+  };
+  voiceRecognition.onerror = () => {
+    voiceActive = false;
+    btn.textContent = '🎤';
+    btn.classList.remove('voice-btn-active');
+  };
+  voiceRecognition.onend = () => {
+    if (voiceActive) voiceRecognition.start(); // keep listening
+  };
+
+  voiceActive = true;
+  btn.textContent = '🔴';
+  btn.classList.add('voice-btn-active');
+  voiceRecognition.start();
+}
+
+// ─── Hook agent commands into relay message handler ───────────────────────────
+const _prevHandleRelay = window.handleRelayMessage || (() => {});
+window.handleRelayMessage = function(msg) {
+  // Intercept agent command results
+  if (msg.type === 'result' && pendingAgentCommands.has(msg.commandId)) {
+    const { resolve, timeout } = pendingAgentCommands.get(msg.commandId);
+    clearTimeout(timeout);
+    pendingAgentCommands.delete(msg.commandId);
+    resolve(msg.result || {});
+    return;
+  }
+  // Intercept screen captures
+  if (msg.type === 'result' && pendingScreenCaptures.has(msg.commandId)) {
+    pendingScreenCaptures.delete(msg.commandId);
+    handleScreenResult(msg.result);
+    return;
+  }
+  _prevHandleRelay(msg);
+};
+
+// ─── Agent Groq Key setting in sidebar ───────────────────────────────────────
+// Allow saving agent Groq key from relay config area
+function saveAgentKey() {
+  const k = document.getElementById('agentKeyInput')?.value?.trim();
+  if (k) { localStorage.setItem('agentGroqKey', k); alert('Agent API key saved!'); }
 }
 </script>
 </body>
