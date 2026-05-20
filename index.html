@@ -1041,7 +1041,7 @@
     <button class="login-btn" onclick="attemptLogin()">Sign In →</button>
     <div class="login-error" id="loginError">Incorrect username or password</div>
 
-    <div class="login-footer">HydraSpecma India Pvt. Ltd.</div>
+    <div class="login-footer">Manigandan Parthasarathi</div>
   </div>
 </div>
 
@@ -1080,7 +1080,7 @@
     <!-- Relay URL Config -->
     <div class="relay-config">
       <div class="panel-label" style="margin-bottom:6px">Relay Server URL</div>
-      <input class="relay-input" id="relayUrl" value="" placeholder="wss://your-name.onrender.com">
+      <input class="relay-input" id="relayUrl" value="" placeholder="wss://remote-ai-relay.onrender.com">
       <div style="display:flex;gap:6px;margin-top:6px">
         <button onclick="testRelay()" style="flex:1;font-family:var(--mono);font-size:10px;background:var(--bg4);border:1px solid var(--border);color:var(--text3);padding:5px 8px;border-radius:4px;cursor:pointer">🔍 Test URL</button>
         <button onclick="saveRelayUrl()" style="flex:1;font-family:var(--mono);font-size:10px;background:#312e81;border:none;color:#c7d2fe;padding:5px 8px;border-radius:4px;cursor:pointer">💾 Save</button>
@@ -1976,8 +1976,17 @@ function showScreenFrame(dataUrl, title, url) {
 let agentRunning = false;
 let agentAbort = false;
 let agentStepCount = 0;
-const AGENT_MAX_STEPS = 10;
-const GROQ_KEY_STORE = 'groqApiKey'; // reuse extension key storage concept
+const AGENT_MAX_STEPS = 999; // effectively unlimited — agent stops when goal achieved
+const GROQ_KEY_STORE = 'agentGroqKey';
+
+// Models in priority order — fastest/highest limits first
+const GROQ_MODELS = [
+  'llama-3.1-8b-instant',       // highest TPM limit, very fast
+  'gemma2-9b-it',               // good fallback
+  'llama3-8b-8192',             // another fallback
+  'llama-3.3-70b-versatile',    // most capable but lower limit
+];
+let currentModelIdx = 0;
 
 function fillAgent(text) { document.getElementById('agentInput').value = text; autoResize(document.getElementById('agentInput')); }
 function handleAgentKey(e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); startAgent(); } }
@@ -2038,41 +2047,58 @@ async function startAgent() {
   let lastResult = null;
   let achieved = false;
 
-  const systemPrompt = `You are an autonomous browser automation agent. The user gives you a goal and you accomplish it by running JavaScript in their browser step by step.
+  const systemPrompt = `You are an autonomous browser automation agent. Accomplish the user's goal by running JavaScript step by step.
 
-Rules:
-- Each response must be valid JSON: {"thought":"...", "action":"js_code_here", "done":false, "conclusion":""}
-- "thought": explain what you're doing and why (max 1 sentence)
-- "action": JavaScript code to run in the browser (use console.log for outputs, return values for data)
-- "done": true ONLY when goal is fully achieved
-- "conclusion": summary of what was achieved (only when done:true)
-- Keep actions focused and safe — no destructive operations
-- After each result, adapt your next action based on what you see
-- Max ${AGENT_MAX_STEPS} steps then summarize what was found`;
+Respond ONLY with JSON: {"thought":"1 sentence plan","action":"js code here","done":false,"conclusion":""}
+- "action": safe JavaScript — use return statements for data, console.log for output
+- "done": true only when goal is fully achieved  
+- Keep each action small and focused
+- After errors, try a different approach
+- NEVER use outerHTML/innerHTML on potentially null elements — always check if element exists first
+- Safe pattern: const el = document.querySelector('...'); if(el) { return el.textContent; } else { return 'not found'; }`;
 
-  while (!agentAbort && agentStepCount < AGENT_MAX_STEPS) {
+  while (!agentAbort) {
     agentStepCount++;
 
-    const userMsg = agentStepCount === 1
-      ? `Goal: ${goal}\n\nCurrent page context:\nURL: ${pageCtx.url}\nTitle: ${pageCtx.title}\nPage text preview: ${pageCtx.text?.slice(0, 800) || 'N/A'}`
-      : `Step ${agentStepCount-1} result:\n${JSON.stringify(lastResult, null, 2)}\n\nContinue working towards the goal. Are we done?`;
+    // Build trimmed context — only keep last 4 exchanges to save tokens
+    const trimmedHistory = conversationHistory.slice(-8);
 
+    const userMsg = agentStepCount === 1
+      ? `Goal: ${goal}\n\nPage: ${pageCtx.url}\nTitle: ${pageCtx.title}\nContent preview: ${(pageCtx.text || '').slice(0, 500)}`
+      : `Step ${agentStepCount-1} result: ${JSON.stringify(lastResult).slice(0, 400)}\n\nContinue. Done?`;
+
+    trimmedHistory.push({ role: 'user', content: userMsg });
     conversationHistory.push({ role: 'user', content: userMsg });
 
     // Add step UI
     const stepEl = addAgentStep(blockId, agentStepCount, 'running', 'Thinking…', '');
+    setAgentStatus('running', `Step ${agentStepCount} — AI planning…`);
 
-    setAgentStatus('running', `Step ${agentStepCount}/${AGENT_MAX_STEPS} — AI planning…`);
-
-    // Call Groq AI for next action
+    // Call AI for next action
     let plan;
     try {
-      const aiResponse = await callAgentAI(systemPrompt, conversationHistory);
+      const aiResponse = await callAgentAI(systemPrompt, trimmedHistory);
       plan = parseAgentResponse(aiResponse);
       conversationHistory.push({ role: 'assistant', content: aiResponse });
     } catch(e) {
-      updateAgentStep(stepEl, 'error', `AI error: ${e.message}`, '');
-      break;
+      // If rate limited, wait and retry once
+      if (e.message.includes('Rate limit') || e.message.includes('rate_limit')) {
+        const waitSec = parseInt(e.message.match(/(\d+\.?\d*)s/)?.[1] || '5') + 1;
+        updateAgentStep(stepEl, 'running', `Rate limited — waiting ${waitSec}s then retrying…`, '');
+        setAgentStatus('running', `⏳ Rate limited — resuming in ${waitSec}s…`);
+        await new Promise(r => setTimeout(r, waitSec * 1000));
+        try {
+          const aiResponse = await callAgentAI(systemPrompt, trimmedHistory);
+          plan = parseAgentResponse(aiResponse);
+          conversationHistory.push({ role: 'assistant', content: aiResponse });
+        } catch(e2) {
+          updateAgentStep(stepEl, 'error', `AI error after retry: ${e2.message}`, '');
+          break;
+        }
+      } else {
+        updateAgentStep(stepEl, 'error', `AI error: ${e.message}`, '');
+        break;
+      }
     }
 
     // Update step with action
@@ -2116,9 +2142,9 @@ Rules:
   if (!achieved && !agentAbort) {
     const conclusion = document.createElement('div');
     conclusion.className = 'agent-conclusion error';
-    conclusion.textContent = `⚠ Reached max steps (${AGENT_MAX_STEPS}). Last result: ${JSON.stringify(lastResult?.returnValue || lastResult?.logs || lastResult?.error || 'No output').slice(0,200)}`;
+    conclusion.textContent = `⚠ Agent stopped. Last result: ${JSON.stringify(lastResult?.returnValue || lastResult?.logs || lastResult?.error || 'No output').slice(0,200)}`;
     block.appendChild(conclusion);
-    setAgentStatus('error', `Stopped after ${AGENT_MAX_STEPS} steps`);
+    setAgentStatus('error', `Agent stopped after ${agentStepCount} steps`);
   }
 
   agentRunning = false;
@@ -2155,39 +2181,63 @@ function updateAgentStep(el, state, action, result) {
 async function getPageContext() {
   try {
     const result = await executeAgentCode(`
-      return JSON.stringify({
-        url: location.href,
-        title: document.title,
-        text: document.body?.innerText?.slice(0, 1200) || ''
-      });
+      try {
+        return JSON.stringify({
+          url: location.href,
+          title: document.title,
+          text: (document.body ? document.body.innerText : '').slice(0, 1200)
+        });
+      } catch(e) {
+        return JSON.stringify({ url: location.href, title: document.title, text: '', error: e.message });
+      }
     `);
     return JSON.parse(result.returnValue || '{}');
   } catch { return { url: 'unknown', title: 'unknown', text: '' }; }
 }
 
 async function callAgentAI(system, history) {
-  // Try Groq first (fastest for agentic loops)
   const groqKey = localStorage.getItem('agentGroqKey') || '';
   if (groqKey) {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: system }, ...history],
-        temperature: 0.1,
-        max_tokens: 1024,
-        response_format: { type: 'json_object' }
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.choices?.[0]?.message?.content || '{}';
+    // Try models in order — rotate to next on rate limit
+    for (let i = 0; i < GROQ_MODELS.length; i++) {
+      const modelIdx = (currentModelIdx + i) % GROQ_MODELS.length;
+      const model = GROQ_MODELS[modelIdx];
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'system', content: system }, ...history],
+            temperature: 0.1,
+            max_tokens: 512,        // reduced — agent responses are short JSON
+            response_format: { type: 'json_object' }
+          })
+        });
+        const data = await res.json();
+        if (data.error) {
+          const msg = data.error.message || '';
+          if (msg.includes('rate_limit') || msg.includes('Rate limit')) {
+            // Try next model
+            currentModelIdx = (modelIdx + 1) % GROQ_MODELS.length;
+            setAgentStatus('running', `Rate limit on ${model} → switching to ${GROQ_MODELS[currentModelIdx]}…`);
+            await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+          throw new Error(msg);
+        }
+        currentModelIdx = modelIdx; // remember working model
+        return data.choices?.[0]?.message?.content || '{}';
+      } catch(e) {
+        if (i === GROQ_MODELS.length - 1) throw e; // all models failed
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
   }
 
-  // Fallback: Pollinations (no key needed)
+  // Fallback: Pollinations (no key needed, no rate limit)
   const lastMsg = history[history.length-1]?.content || '';
-  const prompt = encodeURIComponent(`${system}\n\nRespond ONLY with JSON.\n\n${lastMsg}`);
+  const prompt = encodeURIComponent(`${system}\n\nRespond ONLY with valid JSON, nothing else.\n\n${lastMsg.slice(0, 600)}`);
   const res = await fetch(`https://text.pollinations.ai/${prompt}`);
   return await res.text();
 }
@@ -2266,9 +2316,9 @@ async function sendChat() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'llama-3.1-8b-instant',   // fast model with high limits
           messages: [{ role: 'system', content: systemPrompt }, ...chatHistory],
-          temperature: 0.7, max_tokens: 1024
+          temperature: 0.7, max_tokens: 800
         })
       });
       const data = await res.json();
