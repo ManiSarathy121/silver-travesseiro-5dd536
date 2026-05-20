@@ -1041,7 +1041,7 @@
     <button class="login-btn" onclick="attemptLogin()">Sign In →</button>
     <div class="login-error" id="loginError">Incorrect username or password</div>
 
-    <div class="login-footer">Manigandan Parthasarathi</div>
+    <div class="login-footer">HydraSpecma India Pvt. Ltd.</div>
   </div>
 </div>
 
@@ -1080,20 +1080,18 @@
     <!-- Relay URL Config -->
     <div class="relay-config">
       <div class="panel-label" style="margin-bottom:6px">Relay Server URL</div>
-      <input class="relay-input" id="relayUrl" value="" placeholder="wss://remote-ai-relay.onrender.com">
+      <input class="relay-input" id="relayUrl" value="" placeholder="wss://your-name.onrender.com">
       <div style="display:flex;gap:6px;margin-top:6px">
         <button onclick="testRelay()" style="flex:1;font-family:var(--mono);font-size:10px;background:var(--bg4);border:1px solid var(--border);color:var(--text3);padding:5px 8px;border-radius:4px;cursor:pointer">🔍 Test URL</button>
         <button onclick="saveRelayUrl()" style="flex:1;font-family:var(--mono);font-size:10px;background:#312e81;border:none;color:#c7d2fe;padding:5px 8px;border-radius:4px;cursor:pointer">💾 Save</button>
       </div>
       <div id="relayTestResult" style="font-size:10px;font-family:var(--mono);color:var(--text4);margin-top:5px;line-height:1.4"></div>
 
-      <div class="panel-label" style="margin-top:12px;margin-bottom:6px">Agent / Chat API Key (Groq)</div>
+      <div class="panel-label" style="margin-top:12px;margin-bottom:6px">Groq API Key (Agent + Chat)</div>
       <div style="display:flex;gap:6px">
-        <input class="relay-input" id="agentKeyInput" type="password" placeholder="Groq key for Agent + Chat modes" style="flex:1"
-          value="">
+        <input class="relay-input" id="agentKeyInput" type="password" placeholder="Groq key — console.groq.com" style="flex:1">
         <button onclick="saveAgentKey()" style="font-family:var(--mono);font-size:10px;background:#312e81;border:none;color:#c7d2fe;padding:5px 10px;border-radius:4px;cursor:pointer;white-space:nowrap">Save</button>
       </div>
-      <div style="font-size:9px;color:var(--text4);font-family:var(--mono);margin-top:4px">Free key: console.groq.com</div>
     </div>
   </div>
 
@@ -1187,10 +1185,10 @@
           <button class="send-btn" id="agentSendBtn" onclick="startAgent()" title="Start Agent (Ctrl+Enter)" style="background:#7c3aed">▶</button>
         </div>
         <div class="input-hints">
-          <span class="hint-chip" onclick="fillAgent('Navigate to the page and get all table data as JSON')">get table data</span>
-          <span class="hint-chip" onclick="fillAgent('Fill out the search form and click search button')">fill & search</span>
-          <span class="hint-chip" onclick="fillAgent('Click the export button and wait for download to start')">export data</span>
-          <span class="hint-chip" onclick="fillAgent('Scroll through the page and collect all visible text content')">collect content</span>
+          <span class="hint-chip" onclick="fillAgent('Navigate to Electronic Reporting configurations page in D365 F&O')">ER Configurations</span>
+          <span class="hint-chip" onclick="fillAgent('Create an ER report for sales invoice lines with item number, invoice no, invoice date, item price and taxable value')">Sales Invoice ER Report</span>
+          <span class="hint-chip" onclick="fillAgent('Navigate to posted sales invoices list page and extract the visible invoice data from the grid')">Sales Invoices Data</span>
+          <span class="hint-chip" onclick="fillAgent('Check what page is currently open in D365 and return the URL, title and company code')">Check Current Page</span>
         </div>
       </div>
 
@@ -1374,9 +1372,9 @@ if (relayBase) {
   document.getElementById('relayUrl').value = relayBase;
 }
 
-// Load saved agent key
-const savedAgentKey = localStorage.getItem('agentGroqKey') || '';
-if (savedAgentKey && document.getElementById('agentKeyInput')) {
+// Load saved Groq key
+const savedGroqKey = localStorage.getItem('agentGroqKey') || '';
+if (savedGroqKey && document.getElementById('agentKeyInput')) {
   document.getElementById('agentKeyInput').value = '••••••••••••';
 }
 
@@ -1979,15 +1977,6 @@ let agentStepCount = 0;
 const AGENT_MAX_STEPS = 999; // effectively unlimited — agent stops when goal achieved
 const GROQ_KEY_STORE = 'agentGroqKey';
 
-// Models in priority order — fastest/highest limits first
-const GROQ_MODELS = [
-  'llama-3.1-8b-instant',       // highest TPM limit, very fast
-  'gemma2-9b-it',               // good fallback
-  'llama3-8b-8192',             // another fallback
-  'llama-3.3-70b-versatile',    // most capable but lower limit
-];
-let currentModelIdx = 0;
-
 function fillAgent(text) { document.getElementById('agentInput').value = text; autoResize(document.getElementById('agentInput')); }
 function handleAgentKey(e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); startAgent(); } }
 
@@ -2042,101 +2031,168 @@ async function startAgent() {
   // Get current page context first
   const pageCtx = await getPageContext();
 
-  // Run the agentic loop
-  let conversationHistory = [];
+  // Run the agentic loop — Groq with full D365 knowledge
+  let agentHistory = [];
   let lastResult = null;
   let achieved = false;
 
-  const systemPrompt = `You are an autonomous browser automation agent. Accomplish the user's goal by running JavaScript step by step.
+  // ── D365 F&O Expert System Prompt for Groq ─────────────────────────────────
+  const D365_SYSTEM = `You are an expert Microsoft Dynamics 365 Finance & Operations (D365 F&O) automation agent. You have deep knowledge of D365 F&O tables, processes, ER framework, and navigation.
 
-Respond ONLY with JSON: {"thought":"1 sentence plan","action":"js code here","done":false,"conclusion":""}
-- "action": safe JavaScript — use return statements for data, console.log for output
-- "done": true only when goal is fully achieved  
-- Keep each action small and focused
-- After errors, try a different approach
-- NEVER use outerHTML/innerHTML on potentially null elements — always check if element exists first
-- Safe pattern: const el = document.querySelector('...'); if(el) { return el.textContent; } else { return 'not found'; }`;
+RESPONSE FORMAT — always return ONLY valid JSON, nothing else:
+{"explanation":"what you are doing and why in plain English","action":"javascript code to run","done":false,"conclusion":""}
+
+D365 F&O TABLE KNOWLEDGE:
+Sales: CustInvoiceJour(InvoiceId,InvoiceDate,CustAccount,SalesId,InvoiceAmount,SumTax), CustInvoiceTrans(ItemId,Qty,SalesPrice,LineAmount,TaxAmount,InvoiceId), SalesTable, SalesLine
+Purchase: VendInvoiceJour, VendInvoiceTrans, PurchTable, PurchLine
+Inventory: InventTable(ItemId,ItemName,ItemGroupId), InventTrans, InventSum, InventDim
+Finance: LedgerJournalTrans, LedgerTrans, GeneralJournalEntry, TaxTrans(TaxCode,TaxAmount,TaxDirection)
+Customers: CustTable(AccountNum,Name,CustGroup), CustTrans
+Vendors: VendTable(AccountNum,Name,VendGroup), VendTrans
+HR: HcmWorker, EmplTable
+Fixed Assets: AssetTable, AssetTrans
+ER Tables: ERSolutionTable, ERFormatTable, ERModelDefinitionTable
+
+D365 F&O NAVIGATION (URL method):
+- Always navigate: window.location.href = 'https://hydraspecma-uat.sandbox.operations.dynamics.com/?cmp=HSIN&mi=MENUITEM'
+- Verify after navigation: return JSON.stringify({url:location.href,title:document.title})
+- Wait for load: return (async()=>{await new Promise(r=>setTimeout(r,2000));return JSON.stringify({url:location.href,title:document.title});})()
+
+KEY MENU ITEMS:
+ERSolutionTable=ER Configurations, SalesInvoiceListPage=Posted Sales Invoices,
+CustTableListPage=Customers, VendTableListPage=Vendors, PurchTableListPage=Purchase Orders,
+LedgerJournalTransDaily=General Journal, InventTableListPage=Released Products,
+TaxTable=Sales Tax Codes, HcmWorkerListPage=Workers, AssetTable=Fixed Assets,
+SalesTableListPage=All Sales Orders, SRSSalesInvoice=Sales Invoice Report
+
+D365 F&O ER REPORT CREATION PROCESS:
+1. Go to mi=ERSolutionTable
+2. Click New → select type (Data model/Format)
+3. Enter Name, Description, click OK
+4. Click Designer to open ER designer
+5. Add data sources: click "Add root" → select Table records → enter table name
+6. Map fields from data source to model nodes
+7. Save and close designer
+8. For Format: New → Format → select Excel/XML/CSV
+9. Map format cells to model fields
+10. Complete → Activate
+
+D365 BUTTON SELECTORS:
+- New: [data-dyn-controlname="SystemDefinedNewButton"] or [data-dyn-controlname="New"]
+- Save: [data-dyn-controlname="SystemDefinedSaveButton"]  
+- Delete: [data-dyn-controlname="SystemDefinedDeleteButton"]
+- Designer/Edit: [data-dyn-controlname="Designer"] or [data-dyn-controlname="EditButton"]
+- OK/Confirm: [data-dyn-controlname="OKButton"] or [data-dyn-controlname="OK"]
+- Click pattern: const b=document.querySelector('[data-dyn-controlname="NAME"]');if(b){b.click();return 'clicked';}else return 'not found';
+
+D365 GRID DATA READING:
+- Grid rows: document.querySelectorAll('[data-dyn-controlname] [role="row"]')
+- Cell data: row.querySelectorAll('[role="gridcell"]')
+- Input fields: document.querySelector('[data-dyn-controlname="FIELDNAME"] input')
+- Field value: const f=document.querySelector('[data-dyn-controlname="FIELDNAME"]');return f?f.innerText||f.value:'not found';
+
+JAVASCRIPT SAFETY RULES (always follow):
+- ALWAYS null check: const el=document.querySelector('...');if(!el)return 'not found';
+- NEVER: el.textContent without null check
+- For async: return (async()=>{await new Promise(r=>setTimeout(r,1500));return 'result';})()
+- Return data as JSON string: return JSON.stringify({...})
+- After navigation wait 2-3 seconds before interacting
+
+NON-BROWSER QUESTIONS (explain, what tables, how to):
+Set done:true immediately, put full expert answer in conclusion, action: return "explanation";`;
+
+  // Show thinking bar
+  const analysisEl = document.createElement('div');
+  analysisEl.style.cssText = 'padding:10px 14px;font-size:12px;font-family:var(--mono);color:#a5b4fc;border-bottom:1px solid #1e1e3a;background:#0a0818;line-height:1.5;';
+  analysisEl.innerHTML = '<span style="color:#f59e0b;font-weight:700">Groq D365</span> <span style="color:var(--text4)">analyzing your goal…</span>';
+  block.appendChild(analysisEl);
+  setTimeout(scrollToBottom, 50);
 
   while (!agentAbort) {
     agentStepCount++;
 
-    // Build trimmed context — only keep last 4 exchanges to save tokens
-    const trimmedHistory = conversationHistory.slice(-8);
-
+    const trimmedHistory = agentHistory.slice(-10);
     const userMsg = agentStepCount === 1
-      ? `Goal: ${goal}\n\nPage: ${pageCtx.url}\nTitle: ${pageCtx.title}\nContent preview: ${(pageCtx.text || '').slice(0, 500)}`
-      : `Step ${agentStepCount-1} result: ${JSON.stringify(lastResult).slice(0, 400)}\n\nContinue. Done?`;
+      ? `Goal: ${goal}\n\nCurrent D365 page:\nURL: ${pageCtx.url}\nTitle: ${pageCtx.title}\nCompany: ${pageCtx.url.match(/cmp=([^&]+)/)?.[1]||'unknown'}\nMenu: ${pageCtx.url.match(/mi=([^&]+)/)?.[1]||'unknown'}\n\nExplain your plan then execute first step.`
+      : `Step ${agentStepCount-1} result: ${JSON.stringify(lastResult).slice(0,500)}\nCurrent URL: ${lastResult?.url||'unknown'}\nContinue. If done set done:true.`;
 
     trimmedHistory.push({ role: 'user', content: userMsg });
-    conversationHistory.push({ role: 'user', content: userMsg });
+    agentHistory.push({ role: 'user', content: userMsg });
 
-    // Add step UI
-    const stepEl = addAgentStep(blockId, agentStepCount, 'running', 'Thinking…', '');
-    setAgentStatus('running', `Step ${agentStepCount} — AI planning…`);
+    const stepEl = addAgentStep(blockId, agentStepCount, 'running', 'Groq thinking…', '');
+    setAgentStatus('running', `Step ${agentStepCount} — Groq D365 reasoning…`);
 
-    // Call AI for next action
+    // ── Call Groq with D365 knowledge ───────────────────────────────────────
     let plan;
     try {
-      const aiResponse = await callAgentAI(systemPrompt, trimmedHistory);
-      plan = parseAgentResponse(aiResponse);
-      conversationHistory.push({ role: 'assistant', content: aiResponse });
-    } catch(e) {
-      // If rate limited, wait and retry once
-      if (e.message.includes('Rate limit') || e.message.includes('rate_limit')) {
-        const waitSec = parseInt(e.message.match(/(\d+\.?\d*)s/)?.[1] || '5') + 1;
-        updateAgentStep(stepEl, 'running', `Rate limited — waiting ${waitSec}s then retrying…`, '');
-        setAgentStatus('running', `⏳ Rate limited — resuming in ${waitSec}s…`);
-        await new Promise(r => setTimeout(r, waitSec * 1000));
-        try {
-          const aiResponse = await callAgentAI(systemPrompt, trimmedHistory);
-          plan = parseAgentResponse(aiResponse);
-          conversationHistory.push({ role: 'assistant', content: aiResponse });
-        } catch(e2) {
-          updateAgentStep(stepEl, 'error', `AI error after retry: ${e2.message}`, '');
-          break;
-        }
-      } else {
-        updateAgentStep(stepEl, 'error', `AI error: ${e.message}`, '');
-        break;
+      const groqRaw = await callGroqD365(D365_SYSTEM, trimmedHistory);
+      plan = parseAgentResponse(groqRaw);
+      agentHistory.push({ role: 'assistant', content: groqRaw });
+
+      if (plan.explanation) {
+        analysisEl.innerHTML = `<span style="color:#f59e0b;font-weight:700">Groq D365</span> <span style="color:#fde68a">${escHtml(plan.explanation)}</span>`;
       }
-    }
-
-    // Update step with action
-    updateAgentStep(stepEl, 'running', plan.thought, '');
-    setAgentStatus('running', `Step ${agentStepCount} — Executing in browser…`);
-
-    // Execute the action in browser
-    let result;
-    try {
-      result = await executeAgentCode(plan.action);
-      lastResult = {
-        logs: result.logs?.map(l => l.msg).join('\n') || '',
-        returnValue: result.returnValue || '',
-        error: result.error || null,
-        url: result.url,
-        title: result.title
-      };
-      const resultText = result.error
-        ? `ERROR: ${result.error}`
-        : (result.returnValue || result.logs?.map(l=>l.msg).join('\n') || 'Done (no output)');
-      updateAgentStep(stepEl, result.error ? 'error' : 'done', plan.thought, resultText.slice(0, 300));
     } catch(e) {
-      lastResult = { error: e.message };
-      updateAgentStep(stepEl, 'error', plan.thought, `Execution error: ${e.message}`);
-    }
-
-    // Check if goal achieved
-    if (plan.done) {
-      achieved = true;
-      const conclusion = document.createElement('div');
-      conclusion.className = 'agent-conclusion';
-      conclusion.textContent = '✓ ' + (plan.conclusion || 'Goal achieved successfully.');
-      block.appendChild(conclusion);
-      setAgentStatus('done', '✓ Goal achieved!');
+      if (e.message.includes('Rate limit') || e.message.includes('rate_limit')) {
+        const waitSec = parseInt(e.message.match(/(\d+\.?\d*)s/)?.[1]||'5')+1;
+        setAgentStatus('running', `⏳ Rate limited — waiting ${waitSec}s…`);
+        updateAgentStep(stepEl,'running',`Rate limited — resuming in ${waitSec}s…`,'');
+        await new Promise(r=>setTimeout(r,waitSec*1000));
+        continue;
+      }
+      updateAgentStep(stepEl,'error',`AI error: ${e.message}`,'');
       break;
     }
 
-    await new Promise(r => setTimeout(r, 500)); // small pause between steps
+    // Explanation-only answer (no browser action needed)
+    if (plan.done && (!plan.action || plan.action.includes('explanation'))) {
+      achieved = true;
+      analysisEl.innerHTML = `<span style="color:#22c55e;font-weight:700">Groq D365</span> <span style="color:#4ade80">${escHtml(plan.explanation||'')}</span>`;
+      const conclusion = document.createElement('div');
+      conclusion.className = 'agent-conclusion';
+      conclusion.style.whiteSpace = 'pre-wrap';
+      conclusion.textContent = '✓ ' + (plan.conclusion || plan.explanation || 'Done.');
+      block.appendChild(conclusion);
+      updateAgentStep(stepEl,'done', plan.explanation||'Answered','');
+      setAgentStatus('done','✓ Done!');
+      break;
+    }
+
+    // Execute JS in browser
+    updateAgentStep(stepEl,'running', plan.explanation||plan.thought||'Executing…','');
+    setAgentStatus('running',`Step ${agentStepCount} — executing in browser…`);
+
+    let result;
+    try {
+      result = await executeAgentCode(plan.action||'return "no action";');
+      lastResult = {
+        logs: result.logs?.map(l=>l.msg).join('\n')||'',
+        returnValue: result.returnValue||'',
+        error: result.error||null,
+        url: result.url, title: result.title
+      };
+      const resultText = result.error
+        ? `ERROR: ${result.error}`
+        : (result.returnValue||result.logs?.map(l=>l.msg).join('\n')||'Done (no output)');
+      updateAgentStep(stepEl, result.error?'error':'done',
+        plan.explanation||plan.thought||'Executed', resultText.slice(0,400));
+    } catch(e) {
+      lastResult = { error: e.message };
+      updateAgentStep(stepEl,'error', plan.explanation||'Execution failed', e.message);
+    }
+
+    if (plan.done) {
+      achieved = true;
+      analysisEl.innerHTML = `<span style="color:#22c55e;font-weight:700">Groq D365</span> <span style="color:#4ade80">${escHtml(plan.conclusion||'Goal achieved!')}</span>`;
+      const conclusion = document.createElement('div');
+      conclusion.className = 'agent-conclusion';
+      conclusion.textContent = '✓ ' + (plan.conclusion||'Goal achieved!');
+      block.appendChild(conclusion);
+      setAgentStatus('done','✓ Goal achieved!');
+      break;
+    }
+
+    await new Promise(r=>setTimeout(r,800));
   }
 
   if (!achieved && !agentAbort) {
@@ -2195,52 +2251,72 @@ async function getPageContext() {
   } catch { return { url: 'unknown', title: 'unknown', text: '' }; }
 }
 
-async function callAgentAI(system, history) {
+// ─── Groq D365 Expert — single AI function, model rotation, rate limit retry ──
+const GROQ_MODELS = [
+  'llama-3.1-8b-instant',      // fastest, highest TPM
+  'gemma2-9b-it',              // good fallback
+  'llama3-8b-8192',            // another fallback
+  'llama-3.3-70b-versatile',   // most capable, lower limit
+  'mixtral-8x7b-32768',        // long context fallback
+];
+let currentModelIdx = 0;
+
+async function callGroqD365(system, history) {
   const groqKey = localStorage.getItem('agentGroqKey') || '';
-  if (groqKey) {
-    // Try models in order — rotate to next on rate limit
-    for (let i = 0; i < GROQ_MODELS.length; i++) {
-      const modelIdx = (currentModelIdx + i) % GROQ_MODELS.length;
-      const model = GROQ_MODELS[modelIdx];
-      try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'system', content: system }, ...history],
-            temperature: 0.1,
-            max_tokens: 512,        // reduced — agent responses are short JSON
-            response_format: { type: 'json_object' }
-          })
-        });
-        const data = await res.json();
-        if (data.error) {
-          const msg = data.error.message || '';
-          if (msg.includes('rate_limit') || msg.includes('Rate limit')) {
-            // Try next model
-            currentModelIdx = (modelIdx + 1) % GROQ_MODELS.length;
-            setAgentStatus('running', `Rate limit on ${model} → switching to ${GROQ_MODELS[currentModelIdx]}…`);
-            await new Promise(r => setTimeout(r, 1500));
-            continue;
-          }
-          throw new Error(msg);
-        }
-        currentModelIdx = modelIdx; // remember working model
-        return data.choices?.[0]?.message?.content || '{}';
-      } catch(e) {
-        if (i === GROQ_MODELS.length - 1) throw e; // all models failed
-        await new Promise(r => setTimeout(r, 1000));
-      }
-    }
+  if (!groqKey) {
+    // Try Pollinations as last resort
+    const lastMsg = history[history.length-1]?.content || '';
+    const prompt = encodeURIComponent(`${system}\n\nIMPORTANT: Respond ONLY with valid JSON, no other text.\n\n${lastMsg.slice(0,600)}`);
+    const res = await fetch(`https://text.pollinations.ai/${prompt}`);
+    return await res.text();
   }
 
-  // Fallback: Pollinations (no key needed, no rate limit)
-  const lastMsg = history[history.length-1]?.content || '';
-  const prompt = encodeURIComponent(`${system}\n\nRespond ONLY with valid JSON, nothing else.\n\n${lastMsg.slice(0, 600)}`);
-  const res = await fetch(`https://text.pollinations.ai/${prompt}`);
-  return await res.text();
+  for (let attempt = 0; attempt < GROQ_MODELS.length * 2; attempt++) {
+    const modelIdx = currentModelIdx % GROQ_MODELS.length;
+    const model = GROQ_MODELS[modelIdx];
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'system', content: system }, ...history],
+          temperature: 0.1,
+          max_tokens: 600,
+          response_format: { type: 'json_object' }
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        const msg = data.error.message || '';
+        if (msg.includes('rate_limit') || msg.includes('Rate limit')) {
+          currentModelIdx++;
+          const nextModel = GROQ_MODELS[currentModelIdx % GROQ_MODELS.length];
+          setAgentStatus('running', `Rate limit on ${model} → trying ${nextModel}…`);
+          await new Promise(r => setTimeout(r, 1200));
+          continue;
+        }
+        throw new Error(msg);
+      }
+      currentModelIdx = modelIdx; // remember working model
+      return data.choices?.[0]?.message?.content || '{}';
+    } catch(e) {
+      if (attempt < GROQ_MODELS.length - 1) {
+        currentModelIdx++;
+        await new Promise(r => setTimeout(r, 800));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('All Groq models exhausted');
 }
+
+// Keep callAgentAI as alias for compatibility
+const callAgentAI = callGroqD365;
 
 function parseAgentResponse(raw) {
   try {
@@ -2303,22 +2379,44 @@ async function sendChat() {
     } catch {}
   }
 
-  chatHistory.push({ role: 'user', content: input + pageCtx });
+  chatHistory.push({ role: 'user', content: input });
 
-  const systemPrompt = `You are Mani's AI assistant helping with browser automation and D365 F&O tasks at HydraSpecma India. You have access to the user's current browser context when connected. Be helpful, concise, and practical. If asked to do something in the browser, explain what code would be needed or ask admin to switch to Agent mode.`;
+  const systemPrompt = `You are an expert Microsoft Dynamics 365 Finance & Operations consultant and IT automation specialist at HydraSpecma India. You have deep knowledge of:
+
+D365 F&O MODULES & TABLES:
+- Sales: CustInvoiceJour, CustInvoiceTrans, SalesTable, SalesLine
+- Purchase: VendInvoiceJour, VendInvoiceTrans, PurchTable, PurchLine  
+- Finance: LedgerJournalTrans, LedgerTrans, TaxTrans, GeneralJournalEntry
+- Inventory: InventTable, InventTrans, InventSum, InventDim, InventItemGroup
+- Customers: CustTable, CustTrans, CustGroup
+- Vendors: VendTable, VendTrans, VendGroup
+- HR: HcmWorker, EmplTable
+- ER Framework: ERSolutionTable, ERFormatTable, ERModelDefinitionTable
+
+D365 F&O PROCESSES:
+- Electronic Reporting (ER): Data model → Model mapping → Format configuration → Excel/XML/CSV output
+- Sales Invoice flow: Sales Order → Confirm → Invoice → Post → CustInvoiceJour + CustInvoiceTrans
+- Purchase flow: PR → PO → Receive → Invoice → VendInvoiceJour
+- General Ledger: Journal → Validate → Post → LedgerTrans
+- GST/Tax: TaxTrans links to invoice via voucher number
+
+NAVIGATION: URLs use ?cmp=HSIN&mi=MENUITEM pattern
+Company: HydraSpecma India (HSIN), Environment: hydraspecma-uat.sandbox.operations.dynamics.com
+
+You are also connected to the user's browser when a session is active. Answer questions clearly and practically. For D365 tasks, explain exact steps and menu paths.${pageCtx ? '\n\nCurrent page context:\n' + pageCtx : ''}`;
 
   try {
-    const groqKey = localStorage.getItem('agentGroqKey') || '';
+    // Use Groq with D365 knowledge for chat
     let reply;
-
+    const groqKey = localStorage.getItem('agentGroqKey') || '';
     if (groqKey) {
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',   // fast model with high limits
+          model: 'llama-3.3-70b-versatile',
           messages: [{ role: 'system', content: systemPrompt }, ...chatHistory],
-          temperature: 0.7, max_tokens: 800
+          temperature: 0.7, max_tokens: 1024
         })
       });
       const data = await res.json();
@@ -2434,7 +2532,12 @@ window.handleRelayMessage = function(msg) {
 // Allow saving agent Groq key from relay config area
 function saveAgentKey() {
   const k = document.getElementById('agentKeyInput')?.value?.trim();
-  if (k) { localStorage.setItem('agentGroqKey', k); alert('Agent API key saved!'); }
+  if (k && k !== '••••••••••••') {
+    localStorage.setItem('agentGroqKey', k);
+    document.getElementById('agentKeyInput').value = '••••••••••••';
+    const btn = document.querySelector('button[onclick="saveAgentKey()"]');
+    if (btn) { btn.textContent = '✓ Saved'; setTimeout(() => btn.textContent = 'Save', 2000); }
+  }
 }
 </script>
 </body>
