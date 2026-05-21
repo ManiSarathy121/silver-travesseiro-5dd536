@@ -1014,7 +1014,7 @@
 </head>
 <body>
 <!-- ── Login Overlay ── -->
-<div class="login-overlay" id="loginOverlay">
+<div class="login-overlay" id="loginOverlay" style="display:flex">
   <div class="login-card">
     <div class="login-avatar">
       <img src="mani.jpg" alt="Mani">
@@ -1039,7 +1039,7 @@
     </div>
 
     <button class="login-btn" onclick="attemptLogin()">Sign In →</button>
-    <div class="login-error" id="loginError">Incorrect username or password</div>
+    <div class="login-error" id="loginError" style="display:none">Error</div>
 
     <div class="login-footer">HydraSpecma India Pvt. Ltd.</div>
   </div>
@@ -1248,110 +1248,81 @@
 
 <script>
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+// Simple login — works on file:// and https://
 const VALID_USER = 'mani';
-const VALID_HASH = '56252a0a3600087c743134e3e1aeded7eefd544089323656793b55ad7c2d3546'; // SHA-256 of Mani@2478
+const VALID_PASS = 'TWFuaUAyNDc4'; // btoa('Mani@2478')
 const SESSION_KEY = 'mhapp_auth';
-const LOCKOUT_KEY = 'mhapp_lockout';
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS   = 5 * 60 * 1000; // 5 minutes
-
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
 
 function checkSession() {
-  const s = sessionStorage.getItem(SESSION_KEY);
-  if (s === 'ok') showApp();
-  else showLogin();
+  try {
+    if (sessionStorage.getItem(SESSION_KEY) === 'ok') { showApp(); return; }
+  } catch(e) {}
+  showLogin();
 }
 
 function showLogin() {
-  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginOverlay').style.display = 'flex';
   document.getElementById('mainApp').style.display = 'none';
-  setTimeout(() => document.getElementById('loginUser').focus(), 100);
+  setTimeout(function() {
+    var u = document.getElementById('loginUser');
+    if (u) u.focus();
+  }, 200);
 }
 
 function showApp() {
-  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('loginOverlay').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
 }
 
-async function attemptLogin() {
-  // Check lockout
-  const lockData = JSON.parse(localStorage.getItem(LOCKOUT_KEY) || '{}');
-  const now = Date.now();
-  if (lockData.until && now < lockData.until) {
-    const mins = Math.ceil((lockData.until - now) / 60000);
-    showLoginError(`Too many attempts. Try again in ${mins} minute${mins>1?'s':''}.`);
+function attemptLogin() {
+  var user = document.getElementById('loginUser').value.trim().toLowerCase();
+  var pass = document.getElementById('loginPass').value;
+
+  if (!user || !pass) {
+    showLoginError('Please enter username and password.');
     return;
   }
 
-  const user = document.getElementById('loginUser').value.trim().toLowerCase();
-  const pass = document.getElementById('loginPass').value;
-  const btn  = document.querySelector('.login-btn');
-
-  if (!user || !pass) { showLoginError('Please enter username and password.'); return; }
-
-  btn.textContent = 'Checking…';
-  btn.disabled = true;
-
-  const hash = await sha256(pass);
-  const ok = (user === VALID_USER && hash === VALID_HASH);
-
-  btn.textContent = 'Sign In →';
-  btn.disabled = false;
+  var passEncoded = btoa(unescape(encodeURIComponent(pass)));
+  var ok = (user === VALID_USER && passEncoded === VALID_PASS);
 
   if (ok) {
-    // Clear lockout on success
-    localStorage.removeItem(LOCKOUT_KEY);
-    sessionStorage.setItem(SESSION_KEY, 'ok');
-    document.getElementById('loginError').classList.remove('visible');
+    try { sessionStorage.setItem(SESSION_KEY, 'ok'); } catch(e) {}
     document.getElementById('loginPass').value = '';
+    document.getElementById('loginError').style.display = 'none';
     showApp();
   } else {
-    // Track failed attempts
-    const attempts = (lockData.attempts || 0) + 1;
-    if (attempts >= MAX_ATTEMPTS) {
-      localStorage.setItem(LOCKOUT_KEY, JSON.stringify({ attempts, until: now + LOCKOUT_MS }));
-      showLoginError(`Too many failed attempts. Locked for 5 minutes.`);
-    } else {
-      localStorage.setItem(LOCKOUT_KEY, JSON.stringify({ attempts, until: null }));
-      const left = MAX_ATTEMPTS - attempts;
-      showLoginError(`Incorrect username or password. ${left} attempt${left>1?'s':''} remaining.`);
-    }
     document.getElementById('loginPass').value = '';
+    showLoginError('Incorrect username or password.');
     document.getElementById('loginPass').focus();
   }
 }
 
 function showLoginError(msg) {
-  const el = document.getElementById('loginError');
+  var el = document.getElementById('loginError');
   el.textContent = msg;
-  el.classList.add('visible');
-  // Shake animation
+  el.style.display = 'block';
   el.style.animation = 'none';
-  el.offsetHeight; // reflow
+  void el.offsetHeight;
   el.style.animation = 'shake 0.4s ease';
 }
 
 function logout() {
-  if (!confirm('Sign out of Mani\'s Help App?')) return;
-  sessionStorage.removeItem(SESSION_KEY);
-  if (ws) { ws.close(); ws = null; }
-  isConnected = false;
-  currentSession = null;
+  if (!confirm("Sign out of Mani's Help App?")) return;
+  try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
+  if (typeof ws !== 'undefined' && ws) { try { ws.close(); } catch(e) {} ws = null; }
+  if (typeof isConnected !== 'undefined') isConnected = false;
+  if (typeof currentSession !== 'undefined') currentSession = null;
   showLogin();
 }
 
-// Shake keyframe injected dynamically
-const shakeStyle = document.createElement('style');
-shakeStyle.textContent = `@keyframes shake {
-  0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
-}`;
-document.head.appendChild(shakeStyle);
+// Shake keyframe
+(function() {
+  var s = document.createElement('style');
+  s.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}';
+  document.head.appendChild(s);
+})();
 
-// Run auth check on load
 checkSession();
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -2036,167 +2007,164 @@ async function startAgent() {
   let lastResult = null;
   let achieved = false;
 
-  // ── Vision-based Agent: Screenshot → Analyze → Act → Repeat ─────────────────
-  const D365_SYSTEM = `You are an expert D365 F&O automation agent. You work like Cowork — you SEE the screen via screenshots, THINK about what to do next, then ACT by running JavaScript. You keep going until the goal is complete.
+  // ── D365 F&O Expert System Prompt for Groq ─────────────────────────────────
+  const D365_SYSTEM = `You are an expert Microsoft Dynamics 365 Finance & Operations (D365 F&O) automation agent. You have deep knowledge of D365 F&O tables, processes, ER framework, and navigation.
 
-RESPONSE FORMAT — valid JSON only:
-{
-  "thought": "What I see on screen and what I will do next",
-  "action": "javascript code to execute",
-  "done": false,
-  "conclusion": "summary when done=true"
-}
+RESPONSE FORMAT — always return ONLY valid JSON, nothing else:
+{"explanation":"what you are doing and why in plain English","action":"javascript code to run","done":false,"conclusion":""}
 
-VISION-BASED WORKFLOW:
-1. Take screenshot first to see current state
-2. Analyze what buttons/fields/links are visible
-3. Decide the correct action based on what you SEE
-4. Execute the action (click, type, navigate)
-5. Take another screenshot to verify it worked
-6. Repeat until goal achieved
+D365 F&O TABLE KNOWLEDGE:
+Sales: CustInvoiceJour(InvoiceId,InvoiceDate,CustAccount,SalesId,InvoiceAmount,SumTax), CustInvoiceTrans(ItemId,Qty,SalesPrice,LineAmount,TaxAmount,InvoiceId), SalesTable, SalesLine
+Purchase: VendInvoiceJour, VendInvoiceTrans, PurchTable, PurchLine
+Inventory: InventTable(ItemId,ItemName,ItemGroupId), InventTrans, InventSum, InventDim
+Finance: LedgerJournalTrans, LedgerTrans, GeneralJournalEntry, TaxTrans(TaxCode,TaxAmount,TaxDirection)
+Customers: CustTable(AccountNum,Name,CustGroup), CustTrans
+Vendors: VendTable(AccountNum,Name,VendGroup), VendTrans
+HR: HcmWorker, EmplTable
+Fixed Assets: AssetTable, AssetTrans
+ER Tables: ERSolutionTable, ERFormatTable, ERModelDefinitionTable
 
-D365 F&O SCREENSHOT CODE (use this to see the page):
-return (async()=>{
-  if(!window.html2canvas){await new Promise((r,j)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';s.onload=r;s.onerror=j;document.head.appendChild(s);});await new Promise(r=>setTimeout(r,800));}
-  const c=await window.html2canvas(document.documentElement,{scale:0.35,x:0,y:window.scrollY,width:window.innerWidth,height:window.innerHeight,scrollX:0,scrollY:window.scrollY,windowWidth:window.innerWidth,windowHeight:window.innerHeight,logging:false,backgroundColor:'#fff'});
-  return '__SCREEN__:'+c.toDataURL('image/jpeg',0.5);
-})()
+D365 F&O NAVIGATION (URL method):
+- Always navigate: window.location.href = 'https://hydraspecma-uat.sandbox.operations.dynamics.com/?cmp=HSIN&mi=MENUITEM'
+- Verify after navigation: return JSON.stringify({url:location.href,title:document.title})
+- Wait for load: return (async()=>{await new Promise(r=>setTimeout(r,2000));return JSON.stringify({url:location.href,title:document.title});})()
 
-D365 F&O KNOWLEDGE:
-- Navigate: window.location.href='https://hydraspecma-uat.sandbox.operations.dynamics.com/?cmp=HSIN&mi=MENUITEM'
-- Wait after nav: return (async()=>{await new Promise(r=>setTimeout(r,3000));return JSON.stringify({url:location.href,title:document.title});})()
-- Click by text: const btns=[...document.querySelectorAll('button,a,[role=button],[role=menuitem]')];const b=btns.find(x=>x.innerText?.trim().toLowerCase().includes('TEXT'));if(b){b.click();return 'clicked: '+b.innerText.trim();}return 'not found';
-- Click by controlname: const b=document.querySelector('[data-dyn-controlname="NAME"]');if(b){b.click();return 'clicked';}return 'not found';
-- Type in field: const f=document.querySelector('[data-dyn-controlname="NAME"] input, [data-dyn-controlname="NAME"] textarea');if(f){f.value='VALUE';f.dispatchEvent(new Event('input',{bubbles:true}));f.dispatchEvent(new Event('change',{bubbles:true}));return 'typed';}return 'field not found';
-- Get all visible buttons: return [...document.querySelectorAll('button,[role=button]')].filter(b=>b.offsetParent).map(b=>b.innerText?.trim()).filter(t=>t).slice(0,20).join(' | ');
-- Get page text: return (document.body?document.body.innerText:'').slice(0,800);
-- Key menus: ERSolutionTable, SalesInvoiceListPage, CustTableListPage, VendTableListPage
+KEY MENU ITEMS:
+ERSolutionTable=ER Configurations, SalesInvoiceListPage=Posted Sales Invoices,
+CustTableListPage=Customers, VendTableListPage=Vendors, PurchTableListPage=Purchase Orders,
+LedgerJournalTransDaily=General Journal, InventTableListPage=Released Products,
+TaxTable=Sales Tax Codes, HcmWorkerListPage=Workers, AssetTable=Fixed Assets,
+SalesTableListPage=All Sales Orders, SRSSalesInvoice=Sales Invoice Report
 
-IMPORTANT RULES:
-- ALWAYS take a screenshot first to understand current state
-- After clicking or navigating, ALWAYS wait 2-3 seconds then screenshot again
-- If button not found by controlname, find it by visible text using the find-by-text pattern
-- When screenshot shows empty/loading page, wait more and screenshot again
-- Never give up after one failure — try alternative selectors`;
+D365 F&O ER REPORT CREATION PROCESS:
+1. Go to mi=ERSolutionTable
+2. Click New → select type (Data model/Format)
+3. Enter Name, Description, click OK
+4. Click Designer to open ER designer
+5. Add data sources: click "Add root" → select Table records → enter table name
+6. Map fields from data source to model nodes
+7. Save and close designer
+8. For Format: New → Format → select Excel/XML/CSV
+9. Map format cells to model fields
+10. Complete → Activate
 
-  // ── Show thinking bar ────────────────────────────────────────────────────
+D365 BUTTON SELECTORS:
+- New: [data-dyn-controlname="SystemDefinedNewButton"] or [data-dyn-controlname="New"]
+- Save: [data-dyn-controlname="SystemDefinedSaveButton"]  
+- Delete: [data-dyn-controlname="SystemDefinedDeleteButton"]
+- Designer/Edit: [data-dyn-controlname="Designer"] or [data-dyn-controlname="EditButton"]
+- OK/Confirm: [data-dyn-controlname="OKButton"] or [data-dyn-controlname="OK"]
+- Click pattern: const b=document.querySelector('[data-dyn-controlname="NAME"]');if(b){b.click();return 'clicked';}else return 'not found';
+
+D365 GRID DATA READING:
+- Grid rows: document.querySelectorAll('[data-dyn-controlname] [role="row"]')
+- Cell data: row.querySelectorAll('[role="gridcell"]')
+- Input fields: document.querySelector('[data-dyn-controlname="FIELDNAME"] input')
+- Field value: const f=document.querySelector('[data-dyn-controlname="FIELDNAME"]');return f?f.innerText||f.value:'not found';
+
+JAVASCRIPT SAFETY RULES (always follow):
+- ALWAYS null check: const el=document.querySelector('...');if(!el)return 'not found';
+- NEVER: el.textContent without null check
+- For async: return (async()=>{await new Promise(r=>setTimeout(r,1500));return 'result';})()
+- Return data as JSON string: return JSON.stringify({...})
+- After navigation wait 2-3 seconds before interacting
+
+NON-BROWSER QUESTIONS (explain, what tables, how to):
+Set done:true immediately, put full expert answer in conclusion, action: return "explanation";`;
+
+  // Show thinking bar
   const analysisEl = document.createElement('div');
-  analysisEl.style.cssText = 'padding:10px 14px;font-size:12px;font-family:var(--mono);color:#a5b4fc;border-bottom:1px solid #1e1e3a;background:#0a0818;line-height:1.5;word-break:break-word;';
-  analysisEl.innerHTML = '<span style="color:#f59e0b;font-weight:700">Groq Vision</span> <span style="color:var(--text4)">taking screenshot to see current state…</span>';
+  analysisEl.style.cssText = 'padding:10px 14px;font-size:12px;font-family:var(--mono);color:#a5b4fc;border-bottom:1px solid #1e1e3a;background:#0a0818;line-height:1.5;';
+  analysisEl.innerHTML = '<span style="color:#f59e0b;font-weight:700">Groq D365</span> <span style="color:var(--text4)">analyzing your goal…</span>';
   block.appendChild(analysisEl);
-  setTimeout(scrollToBottom, 50);
-
-  // ── Screen thumbnail area ────────────────────────────────────────────────
-  const thumbArea = document.createElement('div');
-  thumbArea.style.cssText = 'padding:6px 14px;border-bottom:1px solid #1e1e3a;background:#060609;display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:40px;';
-  thumbArea.innerHTML = '<span style="font-size:9px;font-family:var(--mono);color:var(--text4)">VISION</span>';
-  block.appendChild(thumbArea);
   setTimeout(scrollToBottom, 50);
 
   while (!agentAbort) {
     agentStepCount++;
 
-    const trimmedHistory = agentHistory.slice(-8);
+    const trimmedHistory = agentHistory.slice(-10);
     const userMsg = agentStepCount === 1
-      ? `Goal: ${goal}\n\nStart by taking a screenshot to see current state, then plan your approach.`
-      : `Step ${agentStepCount-1} result: ${JSON.stringify(lastResult).slice(0,400)}\nContinue. What do you see and what is next action? If done set done:true.`;
+      ? `Goal: ${goal}\n\nCurrent D365 page:\nURL: ${pageCtx.url}\nTitle: ${pageCtx.title}\nCompany: ${pageCtx.url.match(/cmp=([^&]+)/)?.[1]||'unknown'}\nMenu: ${pageCtx.url.match(/mi=([^&]+)/)?.[1]||'unknown'}\n\nExplain your plan then execute first step.`
+      : `Step ${agentStepCount-1} result: ${JSON.stringify(lastResult).slice(0,500)}\nCurrent URL: ${lastResult?.url||'unknown'}\nContinue. If done set done:true.`;
 
     trimmedHistory.push({ role: 'user', content: userMsg });
     agentHistory.push({ role: 'user', content: userMsg });
 
-    const stepEl = addAgentStep(blockId, agentStepCount, 'running', 'Thinking…', '');
-    setAgentStatus('running', `Step ${agentStepCount} — reasoning…`);
+    const stepEl = addAgentStep(blockId, agentStepCount, 'running', 'Groq thinking…', '');
+    setAgentStatus('running', `Step ${agentStepCount} — Groq D365 reasoning…`);
 
-    // ── Call Groq ──────────────────────────────────────────────────────────
+    // ── Call Groq with D365 knowledge ───────────────────────────────────────
     let plan;
     try {
-      const raw = await callGroqD365(D365_SYSTEM, trimmedHistory);
-      plan = parseAgentResponse(raw);
-      agentHistory.push({ role: 'assistant', content: raw });
-      if (plan.thought) {
-        analysisEl.innerHTML = `<span style="color:#f59e0b;font-weight:700">Groq Vision</span> <span style="color:#fde68a">${escHtml(plan.thought)}</span>`;
+      const groqRaw = await callGroqD365(D365_SYSTEM, trimmedHistory);
+      plan = parseAgentResponse(groqRaw);
+      agentHistory.push({ role: 'assistant', content: groqRaw });
+
+      if (plan.explanation) {
+        analysisEl.innerHTML = `<span style="color:#f59e0b;font-weight:700">Groq D365</span> <span style="color:#fde68a">${escHtml(plan.explanation)}</span>`;
       }
     } catch(e) {
       if (e.message.includes('Rate limit') || e.message.includes('rate_limit')) {
-        const w = parseInt(e.message.match(/(\d+\.?\d*)s/)?.[1]||'5')+1;
-        setAgentStatus('running', `⏳ Rate limited — waiting ${w}s…`);
-        await new Promise(r=>setTimeout(r,w*1000));
+        const waitSec = parseInt(e.message.match(/(\d+\.?\d*)s/)?.[1]||'5')+1;
+        setAgentStatus('running', `⏳ Rate limited — waiting ${waitSec}s…`);
+        updateAgentStep(stepEl,'running',`Rate limited — resuming in ${waitSec}s…`,'');
+        await new Promise(r=>setTimeout(r,waitSec*1000));
         continue;
       }
       updateAgentStep(stepEl,'error',`AI error: ${e.message}`,'');
       break;
     }
 
-    updateAgentStep(stepEl,'running', plan.thought||'Executing…','');
-    setAgentStatus('running',`Step ${agentStepCount} — executing…`);
-
-    // ── Execute action ─────────────────────────────────────────────────────
-    let result;
-    try {
-      result = await executeAgentCode(plan.action||'return "no action";');
-
-      // Check if this is a screenshot result
-      const rawVal = result.returnValue || result.logs?.map(l=>l.msg).join('') || '';
-      if (rawVal.startsWith('__SCREEN__:')) {
-        const dataUrl = rawVal.replace('__SCREEN__:','');
-        // Show thumbnail in thumb area
-        const thumb = document.createElement('img');
-        thumb.src = dataUrl;
-        thumb.style.cssText = 'height:60px;border-radius:3px;border:1px solid #2d2d4e;cursor:pointer;flex-shrink:0;';
-        thumb.title = `Step ${agentStepCount} screenshot`;
-        thumb.onclick = () => {
-          // Show full size in screen panel if open
-          const img = document.getElementById('screenImg');
-          if (img) { img.src = dataUrl; img.style.display='block'; document.getElementById('screenPlaceholder').style.display='none'; }
-        };
-        thumbArea.appendChild(thumb);
-        setTimeout(scrollToBottom, 50);
-
-        lastResult = {
-          screenshot: true,
-          dataUrl,
-          url: result.url,
-          title: result.title,
-          logs: result.logs
-        };
-        updateAgentStep(stepEl,'done', plan.thought||'Screenshot taken', `📸 Screenshot captured — Step ${agentStepCount}`);
-
-        // Also show in screen panel automatically
-        showScreenFrame(dataUrl, result.title, result.url);
-
-      } else {
-        lastResult = {
-          logs: result.logs?.map(l=>l.msg).join('\n')||'',
-          returnValue: result.returnValue||'',
-          error: result.error||null,
-          url: result.url,
-          title: result.title
-        };
-        const txt = result.error ? `ERROR: ${result.error}` : (result.returnValue||result.logs?.map(l=>l.msg).join('\n')||'Done (no output)');
-        updateAgentStep(stepEl, result.error?'error':'done', plan.thought||'Executed', txt.slice(0,400));
-      }
-    } catch(e) {
-      lastResult = { error: e.message };
-      updateAgentStep(stepEl,'error', plan.thought||'Failed', e.message);
-    }
-
-    // ── Check done ─────────────────────────────────────────────────────────
-    if (plan.done) {
+    // Explanation-only answer (no browser action needed)
+    if (plan.done && (!plan.action || plan.action.includes('explanation'))) {
       achieved = true;
-      analysisEl.innerHTML = `<span style="color:#22c55e;font-weight:700">✓ Done</span> <span style="color:#4ade80">${escHtml(plan.conclusion||'Goal achieved!')}</span>`;
+      analysisEl.innerHTML = `<span style="color:#22c55e;font-weight:700">Groq D365</span> <span style="color:#4ade80">${escHtml(plan.explanation||'')}</span>`;
       const conclusion = document.createElement('div');
       conclusion.className = 'agent-conclusion';
       conclusion.style.whiteSpace = 'pre-wrap';
-      conclusion.textContent = ''✓ ' + (plan.conclusion||'Goal achieved!');
+      conclusion.textContent = '✓ ' + (plan.conclusion || plan.explanation || 'Done.');
+      block.appendChild(conclusion);
+      updateAgentStep(stepEl,'done', plan.explanation||'Answered','');
+      setAgentStatus('done','✓ Done!');
+      break;
+    }
+
+    // Execute JS in browser
+    updateAgentStep(stepEl,'running', plan.explanation||plan.thought||'Executing…','');
+    setAgentStatus('running',`Step ${agentStepCount} — executing in browser…`);
+
+    let result;
+    try {
+      result = await executeAgentCode(plan.action||'return "no action";');
+      lastResult = {
+        logs: result.logs?.map(l=>l.msg).join('\n')||'',
+        returnValue: result.returnValue||'',
+        error: result.error||null,
+        url: result.url, title: result.title
+      };
+      const resultText = result.error
+        ? `ERROR: ${result.error}`
+        : (result.returnValue||result.logs?.map(l=>l.msg).join('\n')||'Done (no output)');
+      updateAgentStep(stepEl, result.error?'error':'done',
+        plan.explanation||plan.thought||'Executed', resultText.slice(0,400));
+    } catch(e) {
+      lastResult = { error: e.message };
+      updateAgentStep(stepEl,'error', plan.explanation||'Execution failed', e.message);
+    }
+
+    if (plan.done) {
+      achieved = true;
+      analysisEl.innerHTML = `<span style="color:#22c55e;font-weight:700">Groq D365</span> <span style="color:#4ade80">${escHtml(plan.conclusion||'Goal achieved!')}</span>`;
+      const conclusion = document.createElement('div');
+      conclusion.className = 'agent-conclusion';
+      conclusion.textContent = '✓ ' + (plan.conclusion||'Goal achieved!');
       block.appendChild(conclusion);
       setAgentStatus('done','✓ Goal achieved!');
       break;
     }
 
-    await new Promise(r=>setTimeout(r,600));
+    await new Promise(r=>setTimeout(r,800));
   }
-
-
 
   if (!achieved && !agentAbort) {
     const conclusion = document.createElement('div');
@@ -2256,10 +2224,11 @@ async function getPageContext() {
 
 // ─── Groq D365 Expert — single AI function, model rotation, rate limit retry ──
 const GROQ_MODELS = [
-  'llama-3.1-8b-instant',        // fastest, highest TPM
-  'llama-3.3-70b-versatile',     // most capable
-  'gemma2-9b-it',                // good fallback
-  'llama-3.1-70b-versatile',     // another fallback
+  'llama-3.1-8b-instant',      // fastest, highest TPM
+  'gemma2-9b-it',              // good fallback
+  'llama3-8b-8192',            // another fallback
+  'llama-3.3-70b-versatile',   // most capable, lower limit
+  'mixtral-8x7b-32768',        // long context fallback
 ];
 let currentModelIdx = 0;
 
